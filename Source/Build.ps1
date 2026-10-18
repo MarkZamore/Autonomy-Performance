@@ -13,7 +13,7 @@ if($CommitNumber -lt 0){
     }
 }
 if($CommitNumber -lt 1 -or $CommitNumber -gt 65535){throw 'Номер коммита должен быть от 1 до 65535.'}
-$version='0.0.0.'+$CommitNumber
+$version=$CommitNumber.ToString([Globalization.CultureInfo]::InvariantCulture)
 $versionSource=Join-Path $build 'ConstructorVersion.cs'
 [IO.File]::WriteAllText($versionSource,('using System.Reflection;'+[Environment]::NewLine+'[assembly: AssemblyTitle("Автономность и производительность")]'+[Environment]::NewLine+'[assembly: AssemblyProduct("Autonomy&Performance")]'+[Environment]::NewLine+'[assembly: AssemblyFileVersion("'+$version+'")]'+[Environment]::NewLine+'[assembly: AssemblyInformationalVersion("'+$version+'")]'+[Environment]::NewLine),[Text.UTF8Encoding]::new($true))
 function Compile([string[]]$arguments){& $csc /nologo @arguments;if($LASTEXITCODE -ne 0){throw 'Compilation failed'}}

@@ -26,6 +26,9 @@ $after=$win.FindName('AutonomySection').ActualWidth;$pointAfter=$win.FindName('A
 Assert ($scroll.ComputedVerticalScrollBarVisibility -eq [Windows.Visibility]::Visible) 'Scrollbar missing for expanded categories'
 Assert ([math]::Abs($before-$after) -lt 0.01 -and [math]::Abs($pointBefore.X-$pointAfter.X) -lt 0.01) 'Scrollbar shifted or resized settings'
 $bar=$scroll.Template.FindName('PART_VerticalScrollBar',$scroll)
+$barPoint=$bar.TranslatePoint([Windows.Point]::new(0,0),$grid)
+$cardRight=$pointAfter.X+$after
+Assert ($barPoint.X-$cardRight -ge 3.9) 'Scrollbar overlaps the settings cards'
 $track=$bar.Template.FindName('PART_Track',$bar);$thumb=$track.Thumb;$surface=$thumb.Template.FindName('ThumbSurface',$thumb)
 Assert ([math]::Abs($bar.ActualWidth-16) -lt 0.01) 'Scrollbar hit target is not 16 DIP'
 Assert ([math]::Abs($surface.ActualWidth-2) -lt 0.01) 'Idle scrollbar indicator is not 2 DIP'
@@ -41,7 +44,7 @@ Assert ([math]::Abs($surface.ActualWidth-2) -lt 0.01) 'Scrollbar indicator did n
 Assert ([math]::Abs($after-$win.FindName('AutonomySection').ActualWidth) -lt 0.01) 'Hovering scrollbar changed settings layout'
 $scroll.ScrollToBottom();$grid.UpdateLayout();Assert ($scroll.VerticalOffset -gt 0) 'Overlay scrollbar does not scroll'
 $scroll.ScrollToTop();$grid.UpdateLayout()
-$results+=[pscustomobject]@{ClientWidth=$size.Width;Before=$before;After=$after;XBefore=$pointBefore.X;XAfter=$pointAfter.X;HitTargetDIP=$bar.ActualWidth;IdleDIP=2;HoverDIP=6;DragDIP=6;Scrolled=$true}
+$results+=[pscustomobject]@{ClientWidth=$size.Width;Before=$before;After=$after;XBefore=$pointBefore.X;XAfter=$pointAfter.X;CardRight=$cardRight;ScrollbarLeft=$barPoint.X;GapDIP=($barPoint.X-$cardRight);HitTargetDIP=$bar.ActualWidth;IdleDIP=2;HoverDIP=6;DragDIP=6;Scrolled=$true}
 }
 $results|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $PSScriptRoot 'Artifacts\overlay-scrollbar.json') -Encoding UTF8
 $results

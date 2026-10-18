@@ -7,6 +7,7 @@ public sealed class ConstructorWindow
     readonly CheckBox[] checks;readonly Button save,iconButton;readonly Image currentIcon;readonly Popup popup;readonly UniformGrid icons;readonly TextBlock status;readonly TextBox preview;
     readonly CheckBox displayEnabled;readonly ComboBox displaySelector,refreshSelector;readonly TextBlock displayUnavailable;
     bool updating,updatingDisplays;
+    readonly Dictionary<Expander,int> categoryAnimationVersions=new Dictionary<Expander,int>();
     public sealed class RefreshChoice {public uint Rate;public override string ToString(){return Rate+" Гц";}}
     static readonly string[] iconNames={"Автономность и производительность","Батарея","Экономия энергии","Производительность","Скорость","Своя иконка ICO"};
     public ConstructorWindow()
@@ -32,8 +33,35 @@ public sealed class ConstructorWindow
         ((Expander)Window.FindName("DisplaySection")).Expanded+=delegate{RefreshDisplays();};
         ((Button)Window.FindName("PresetPerformanceButton")).Click+=delegate{ApplyPreset(true);};
         ((Button)Window.FindName("PresetAutonomyButton")).Click+=delegate{ApplyPreset(false);};
+        foreach(string categoryName in new[]{"AutonomySection","PerformanceSection","PowerSection","DisplaySection"}){
+            Expander category=(Expander)Window.FindName(categoryName);
+            category.Expanded+=CategoryStateChanged;category.Collapsed+=CategoryStateChanged;
+        }
         RefreshDisplays();
         RefreshIcons();UpdatePreview();
+    }
+    void CategoryStateChanged(object sender,RoutedEventArgs e)
+    {
+        if(e.OriginalSource!=sender)return;
+        AnimateCategory((Expander)sender,Window.IsLoaded&&SystemParameters.ClientAreaAnimation);
+    }
+    void AnimateCategory(Expander category,bool animate)
+    {
+        category.ApplyTemplate();Border content=category.Template.FindName("SectionContent",category) as Border;if(content==null)return;
+        int version;categoryAnimationVersions.TryGetValue(category,out version);categoryAnimationVersions[category]=++version;
+        content.BeginAnimation(FrameworkElement.HeightProperty,null);content.ClearValue(FrameworkElement.HeightProperty);
+        content.BeginAnimation(UIElement.OpacityProperty,null);
+        if(!category.IsExpanded){content.ClearValue(UIElement.VisibilityProperty);return;}
+        content.Visibility=Visibility.Visible;
+        if(!animate)return;
+        content.Measure(new Size(Math.Max(1,category.ActualWidth-2),Double.PositiveInfinity));double height=content.DesiredSize.Height;
+        if(height<=0)return;
+        content.ClipToBounds=true;content.Height=height;
+        System.Windows.Media.Animation.DoubleAnimation reveal=new System.Windows.Media.Animation.DoubleAnimation(0,height,TimeSpan.FromMilliseconds(200));
+        reveal.EasingFunction=new System.Windows.Media.Animation.CubicEase{EasingMode=System.Windows.Media.Animation.EasingMode.EaseOut};
+        reveal.Completed+=delegate{int current;if(category.IsExpanded&&categoryAnimationVersions.TryGetValue(category,out current)&&current==version){content.BeginAnimation(FrameworkElement.HeightProperty,null);content.ClearValue(FrameworkElement.HeightProperty);}};
+        content.BeginAnimation(FrameworkElement.HeightProperty,reveal);
+        content.BeginAnimation(UIElement.OpacityProperty,new System.Windows.Media.Animation.DoubleAnimation(0,1,TimeSpan.FromMilliseconds(180)){FillBehavior=System.Windows.Media.Animation.FillBehavior.Stop});
     }
     public ModeConfiguration Configuration {
         get{DisplayInfo display=displaySelector.SelectedItem as DisplayInfo;RefreshChoice rate=refreshSelector.SelectedItem as RefreshChoice;bool change=displayEnabled.IsChecked==true&&display!=null&&rate!=null;return new ModeConfiguration{DisplayId=change?display.MonitorId:null,RefreshRate=change?rate.Rate:0,EnergySaver=checks[0].IsChecked==true?1:checks[1].IsChecked==true?2:0,FanProfile=checks[2].IsChecked==true?1:checks[3].IsChecked==true?2:0,Brightness100=checks[4].IsChecked==true,Volume100=checks[5].IsChecked==true,PowerMode=checks[6].IsChecked==true?1:checks[7].IsChecked==true?2:checks[8].IsChecked==true?3:0};}

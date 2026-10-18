@@ -1,55 +1,53 @@
-param([switch]$Source)
+﻿param([switch]$Source)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
-if($Source){
-    Add-Type -Path (Join-Path $root 'Source\SmoothScrolling.cs') -ReferencedAssemblies @('PresentationFramework','PresentationCore','WindowsBase','System.Xaml')
-}else{
-    [void][Reflection.Assembly]::LoadFrom((Join-Path $root 'Source\Build\AutonomyPerformance.exe'))
-}
+if($Source){Add-Type -Path (Join-Path $root 'Source\SmoothScrolling.cs') -ReferencedAssemblies @('PresentationFramework','PresentationCore','WindowsBase','System.Xaml')}
+else{[void][Reflection.Assembly]::LoadFrom((Join-Path $root 'Source\Build\AutonomyPerformance.exe'))}
 function Assert($condition,$message){if(-not $condition){throw $message}}
-function Advance([int]$milliseconds){
-    $frame=New-Object Windows.Threading.DispatcherFrame
-    $timer=New-Object Windows.Threading.DispatcherTimer
-    $timer.Interval=[TimeSpan]::FromMilliseconds($milliseconds)
-    $handler=[EventHandler]{param($s,$e) $s.Stop();$frame.Continue=$false}
-    $timer.add_Tick($handler);$timer.Start()
-    [Windows.Threading.Dispatcher]::PushFrame($frame)
-    $timer.remove_Tick($handler)
-}
 $viewer=New-Object Windows.Controls.ScrollViewer
-$viewer.Width=400;$viewer.Height=300
-$viewer.VerticalScrollBarVisibility='Auto'
+$viewer.Width=400;$viewer.Height=300;$viewer.VerticalScrollBarVisibility='Auto'
 $content=New-Object Windows.Controls.StackPanel
 for($i=0;$i -lt 80;$i++){$row=New-Object Windows.Controls.Border;$row.Height=40;$content.Children.Add($row)|Out-Null}
 $viewer.Content=$content
 $viewer.Measure([Windows.Size]::new(400,300));$viewer.Arrange([Windows.Rect]::new(0,0,400,300));$viewer.UpdateLayout()
 $controller=New-Object SmoothScrollingController($viewer)
-$samples=@()
+$advance=$controller.GetType().GetMethod('AdvanceFrame',[Reflection.BindingFlags]'NonPublic,Instance')
+function Frames([int]$count){for($i=0;$i -lt $count;$i++){[void]$advance.Invoke($controller,@([double](1000.0/60)));$viewer.UpdateLayout()}}
 try{
-    Assert ($viewer.ScrollableHeight -gt 1000) 'Offscreen settings viewport has no overflow'
-    Assert ($controller.ScrollByWheelDelta(-120)) 'Wheel was not accepted'
-    Assert ($controller.TargetOffset -eq 44) 'One notch is not 44 DIP'
-    $initial=$viewer.VerticalOffset
-    Advance 55;$viewer.UpdateLayout();$middle=$viewer.VerticalOffset
-    if([Windows.SystemParameters]::ClientAreaAnimation){Assert ($middle -gt $initial -and $middle -lt 44) 'Wheel skipped intermediate animation offsets'}
-    Advance 220;$viewer.UpdateLayout();Assert ([math]::Abs($viewer.VerticalOffset-44) -lt 1) 'Animation did not finish at requested offset'
-    [void]$controller.ScrollByWheelDelta(-120);[void]$controller.ScrollByWheelDelta(-120);[void]$controller.ScrollByWheelDelta(-60)
-    Assert ([math]::Abs($controller.TargetOffset-154) -lt 1) 'Rapid/partial wheel input was not accumulated proportionally'
-    Advance 220;$viewer.UpdateLayout();Assert ([math]::Abs($viewer.VerticalOffset-154) -lt 1) 'Accumulated animation did not finish'
-    [void]$controller.ScrollByWheelDelta(-120000)
-    Assert ($controller.TargetOffset -eq $viewer.ScrollableHeight) 'Bottom bound was not clamped'
-    Advance 220;$viewer.UpdateLayout()
-    [void]$controller.ScrollByWheelDelta(120000)
-    Assert ($controller.TargetOffset -eq 0) 'Top bound was not clamped'
-    Advance 220;$viewer.UpdateLayout()
+    Assert ($viewer.ScrollableHeight -gt 1000) 'Viewport has no overflow'
     [void]$controller.ScrollByWheelDelta(-120)
-    $viewer.ScrollToVerticalOffset(200);$viewer.UpdateLayout()
-    Assert (-not $controller.IsAnimating) 'External scroll did not cancel animation'
-    Advance 220;$viewer.UpdateLayout();Assert ([math]::Abs($viewer.VerticalOffset-200) -lt 1) 'Animation fought an external scroll'
-    [void]$controller.ScrollByWheelDelta(-120);$controller.Cancel();$stopped=$viewer.VerticalOffset
-    Advance 220;$viewer.UpdateLayout();Assert (-not $controller.IsAnimating -and [math]::Abs($viewer.VerticalOffset-$stopped) -lt 1) 'Cancel left animation running'
-    $result=[pscustomobject]@{Passed=$true;StepDIP=44;DurationMS=160;AnimationsEnabled=[Windows.SystemParameters]::ClientAreaAnimation;Initial=$initial;Intermediate=$middle;Final=44;Accumulated=154;Bounds=$true;ExternalScrollCancelled=$true;CancelStopped=$true}
-    $result|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $PSScriptRoot 'Artifacts\smooth-scroll.json') -Encoding UTF8
+    Assert ($controller.TargetOffset -eq 36) 'One notch must be 36 DIP'
+    Assert ($viewer.VerticalOffset -eq 0) 'Wheel input jumped immediately'
+    Frames 1;$first=$viewer.VerticalOffset
+    if([Windows.SystemParameters]::ClientAreaAnimation){Assert ($first -gt 0 -and $first -lt 12) 'First frame jumps too far'}
+    $positions=@($first)
+    for($i=0;$i -lt 8;$i++){Frames 1;$positions+=$viewer.VerticalOffset;Assert ($positions[-1] -ge $positions[-2]) 'Forward scroll reversed direction'}
+    $beforeRetarget=$viewer.VerticalOffset
+    [void]$controller.ScrollByWheelDelta(-120);[void]$controller.ScrollByWheelDelta(-120);[void]$controller.ScrollByWheelDelta(-60)
+    Assert ($controller.TargetOffset -eq 126) 'Fast/partial input was not accumulated'
+    Assert ($viewer.VerticalOffset -eq $beforeRetarget) 'Retargeting changed current position abruptly'
+    Frames 60;Assert ([math]::Abs($viewer.VerticalOffset-126) -lt 0.01 -and -not $controller.IsAnimating) 'Accumulated motion did not settle'
+    [void]$controller.ScrollByWheelDelta(120);Frames 1
+    Assert ($viewer.VerticalOffset -lt 126 -and $viewer.VerticalOffset -gt 110) 'Reverse direction jumped'
+    Frames 60;Assert ([math]::Abs($viewer.VerticalOffset-90) -lt 0.01) 'Reverse motion did not settle'
+    [void]$controller.ScrollByWheelDelta(-120000);Assert ($controller.TargetOffset -eq $viewer.ScrollableHeight) 'Bottom target not clamped';Frames 80
+    [void]$controller.ScrollByWheelDelta(120000);Assert ($controller.TargetOffset -eq 0) 'Top target not clamped';Frames 80
+    [void]$controller.ScrollByWheelDelta(-120);$viewer.ScrollToVerticalOffset(200);$viewer.UpdateLayout()
+    Assert (-not $controller.IsAnimating) 'External scrolling did not cancel motion';Frames 30
+    Assert ($viewer.VerticalOffset -eq 200) 'Motion fought manual scrolling'
+    [void]$controller.ScrollByWheelDelta(-120);Frames 1;$controller.Cancel();$stopped=$viewer.VerticalOffset;Frames 30
+    Assert (-not $controller.IsAnimating -and $viewer.VerticalOffset -eq $stopped) 'Cancel left motion running'
+    $viewer.ScrollToTop();$viewer.UpdateLayout();$controller.Cancel()
+    [void]$controller.ScrollByWheelDelta(120);Frames 1;$topBounce=$controller.BounceOffset
+    if([Windows.SystemParameters]::ClientAreaAnimation){Assert ($topBounce -gt 0 -and $topBounce -le 18) 'Top edge did not spring inward'}
+    Assert ($viewer.VerticalOffset -eq 0) 'Spring moved actual scroll offset outside top bound'
+    Frames 90;Assert ([math]::Abs($controller.BounceOffset) -lt 0.01 -and -not $controller.IsAnimating) 'Top spring did not settle'
+    $viewer.ScrollToBottom();$viewer.UpdateLayout();$controller.Cancel()
+    [void]$controller.ScrollByWheelDelta(-120);Frames 1;$bottomBounce=$controller.BounceOffset
+    if([Windows.SystemParameters]::ClientAreaAnimation){Assert ($bottomBounce -lt 0 -and $bottomBounce -ge -18) 'Bottom edge did not spring inward'}
+    Frames 90;Assert ([math]::Abs($controller.BounceOffset) -lt 0.01 -and -not $controller.IsAnimating) 'Bottom spring did not settle'
+    $result=[pscustomobject]@{Passed=$true;StepDIP=36;TimeConstantMS=75;FrameDriven=$true;FirstFrame=$first;MonotonicOffsets=$positions;RetargetDoesNotJump=$true;ReverseSmooth=$true;Bounds=$true;ExternalScrollCancelled=$true;CancelStopped=$true;TopBounce=$topBounce;BottomBounce=$bottomBounce;SpringReturnsToRest=$true}
+    $result|ConvertTo-Json -Depth 4|Set-Content -LiteralPath (Join-Path $PSScriptRoot 'Artifacts\smooth-scroll.json') -Encoding UTF8
     $result
 }finally{$controller.Dispose()}

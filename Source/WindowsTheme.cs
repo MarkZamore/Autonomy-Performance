@@ -58,6 +58,6 @@ public static class WindowsTheme
   if(!available&&hwnd!=IntPtr.Zero){int none=1;try{DwmSetWindowAttribute(hwnd,38,ref none,4);}catch{}}
   MicaEnabled=available;
   if(source!=null&&source.CompositionTarget!=null)source.CompositionTarget.BackgroundColor=available?Colors.Transparent:Color.FromRgb(32,32,32);
-  window.Background=available?Brushes.Transparent:(Brush)window.FindResource("Brush.Canvas");return available;
+  window.Background=(Brush)window.FindResource("Brush.WindowBackdrop");return available;
  }
 }

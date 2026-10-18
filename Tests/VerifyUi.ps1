@@ -80,7 +80,7 @@ try {
     try{$theme=$reader.ReadToEnd()}finally{$reader.Dispose()}
     foreach($state in @('IsMouseOver','IsPressed','IsEnabled','IsKeyboardFocused')){Assert ($theme.Contains($state)) ('Missing interactive theme state: '+$state)}
     Assert ($theme -notmatch 'Montserrat|Obsidian|Обсидиан') 'Old design remains in theme'
-    $grid=$win.FindName('RootGrid');$grid.Background=$app.Resources['Brush.Canvas']
+    $grid=$win.FindName('RootGrid');$grid.Background=$app.Resources['Brush.WindowBackdrop']
     foreach($section in @('AutonomySection','PerformanceSection','PowerSection','DisplaySection')){$win.FindName($section).IsExpanded=$true}
     $results=@()
     foreach($scenario in @(@{Name='normal';Width=984;Height=661;Scale=1},@{Name='minimum';Width=804;Height=521;Scale=1},@{Name='dpi150';Width=984;Height=661;Scale=1.5},@{Name='dpi200';Width=984;Height=661;Scale=2})){$results+=Render-Ui $scenario}

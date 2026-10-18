@@ -17,12 +17,12 @@ Assert (-not [object]::ReferenceEquals($originalBrush,$app.Resources['Brush.Acce
 $interop=New-Object Windows.Interop.WindowInteropHelper($window);$handle=$interop.EnsureHandle()
 $value=0;$get=[ThemeAttributes]::DwmGetWindowAttribute($handle,38,[ref]$value,4)
 Assert ($get -eq 0 -and $value -eq 2 -and [WindowsTheme]::MicaEnabled) 'Native Mica not enabled on supported test system'
-Assert ($window.Background -eq [Windows.Media.Brushes]::Transparent) 'WPF hides Mica'
+Assert ($window.Background -is [Windows.Media.LinearGradientBrush] -and $window.Background.Opacity -lt 1) 'Gradient must allow the native backdrop to show through'
 $enabled=$true
 [void][WindowsTheme]::ApplyBackdrop($window,$false)
-Assert (-not [WindowsTheme]::MicaEnabled -and $window.Background.ToString() -eq '#FF202020') 'Solid fallback failed'
+Assert (-not [WindowsTheme]::MicaEnabled -and $window.Background -is [Windows.Media.LinearGradientBrush]) 'Gradient fallback failed'
 [void][WindowsTheme]::ApplyBackdrop($window,$true)
 Assert ([WindowsTheme]::MicaEnabled) 'Mica reactivation failed'
 [pscustomobject]@{AccentSource=[WindowsTheme]::AccentSource;AccentFill=[WindowsTheme]::AccentFill.ToString();AccentText=[WindowsTheme]::AccentText.ToString();Mica=$enabled;Fallback=$true;HiddenWindow=$true}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $PSScriptRoot 'Artifacts\windows-theme.json') -Encoding UTF8
-'PASS: native/managed accent equality, refresh, DWM Mica and solid fallback (hidden test window).'
+'PASS: native/managed accent equality, refresh, DWM Mica with translucent gradient and gradient fallback (hidden test window).'
 }finally{$window.Close()}
