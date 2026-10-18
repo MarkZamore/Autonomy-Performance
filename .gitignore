@@ -1,0 +1,21 @@
+# Local build products and private test evidence
+/Source/Build/
+/Tests/Artifacts/
+
+# Editor and temporary files
+.vs/
+.vscode/
+*.user
+*.suo
+*.tmp
+*.pml
+*.pmc
+*.etl
+*.dmp
+
+# Machine-specific secrets
+.env
+.env.*
+!.env.example
+*.pfx
+*.key

@@ -1,0 +1,1 @@
+﻿using System;public static class GenerateIcons{public static int Main(string[] args){IconArtwork.Generate(args[0]);return 0;}}
