@@ -1,0 +1,67 @@
+﻿$ErrorActionPreference='Stop'
+$root=Split-Path $PSScriptRoot -Parent
+[void][Reflection.Assembly]::LoadFrom((Join-Path $root 'Source\Build\AutonomyPerformance.exe'))
+Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+$app=New-Object Windows.Application
+$ui=New-Object ConstructorWindow
+$window=$ui.Window
+$script:checks=0
+function Assert($condition,$message){$script:checks++;if(-not $condition){throw $message}}
+$apply=$ui.GetType().GetMethod('ApplyProgramAvailability',[Reflection.BindingFlags]'Instance,NonPublic')
+function SetPrograms([bool]$screen,[bool]$wallpaper,[bool]$armoury){[void]$apply.Invoke($ui,[object[]]@($screen,$wallpaper,$armoury))}
+try{
+    $timer=[Diagnostics.Stopwatch]::StartNew();$actual=[ProgramAvailability]::Read();$timer.Stop()
+    Assert ($window.FindName('PerformanceSection').IsEnabled -eq $actual.ScreenXpert) 'ScreenXpert category differs from installation probe'
+    Assert ($window.FindName('WallpaperSection').IsEnabled -eq $actual.WallpaperEngine) 'Wallpaper category differs from installation probe'
+    Assert ($window.FindName('ArmourySection').IsEnabled -eq $actual.ArmouryCrate) 'Armoury category differs from installation probe'
+    SetPrograms $true $true $true
+    foreach($name in @('PerformanceSection','WallpaperSection','ArmourySection')){
+        $section=$window.FindName($name);Assert $section.IsEnabled ('Installed category disabled: '+$name)
+        $section.IsExpanded=$true;Assert $section.IsExpanded ('Installed category cannot expand: '+$name)
+    }
+    $window.FindName('DarkThemeSwitch').IsChecked=$true
+    $window.FindName('FanStandard').IsChecked=$true
+    foreach($name in @('BatteryCareSwitch','WallpaperPlaybackSwitch','WallpaperAudioSwitch','WallpaperApplicationSwitch')){$window.FindName($name).IsChecked=$true}
+    Assert ($ui.Configuration.FanProfile -eq 3 -and $ui.Configuration.WallpaperPlayback -eq 1 -and $ui.Configuration.BatteryCare -eq 1) 'Installed program actions unavailable'
+    SetPrograms $false $false $false
+    foreach($name in @('PerformanceSection','WallpaperSection','ArmourySection')){
+        $section=$window.FindName($name)
+        Assert (-not $section.IsEnabled -and -not $section.IsExpanded) ('Missing category remains interactive/open: '+$name)
+        [void]$section.ApplyTemplate();$header=$section.Template.FindName('HeaderToggle',$section);[void]$header.ApplyTemplate()
+        Assert (-not $header.IsEnabled -and $header.Opacity -eq 0.4) ('Missing category header does not use disabled appearance: '+$name)
+        Assert (-not $header.Focus()) ('Missing category accepts keyboard focus: '+$name)
+        $section.IsExpanded=$true
+        Assert (-not $section.IsExpanded) ('Missing category can be programmatically expanded: '+$name)
+    }
+    foreach($name in @('FanWhisper','FanPerformance','FanStandard')){Assert ($window.FindName($name).IsChecked -eq $false -and -not $window.FindName($name).IsEnabled) ('Unavailable fan action retained/enabled: '+$name)}
+    foreach($name in @('BatteryCareSwitch','WallpaperPlaybackSwitch','WallpaperAudioSwitch','WallpaperApplicationSwitch')){Assert ($null -eq $window.FindName($name).IsChecked -and -not $window.FindName($name).IsEnabled) ('Unavailable program action retained/enabled: '+$name)}
+    $configuration=$ui.Configuration
+    Assert ($configuration.FanProfile -eq 0 -and $configuration.BatteryCare -eq 0 -and $configuration.WallpaperPlayback -eq 0 -and $configuration.WallpaperAudio -eq 0 -and $configuration.WallpaperApplication -eq 0) 'Missing program action reaches generated configuration'
+    Assert ($configuration.DarkTheme -eq 1 -and $configuration.HasActions) 'Unavailable category cleared independent Windows action'
+    foreach($name in @('FanWhisper','FanPerformance','FanStandard')){
+        $window.FindName($name).IsChecked=$true
+        Assert ($ui.Configuration.FanProfile -eq 0) ('Disabled fan action bypassed configuration guard: '+$name)
+        $window.FindName($name).IsChecked=$false
+    }
+    foreach($name in @('BatteryCareSwitch','WallpaperPlaybackSwitch','WallpaperAudioSwitch','WallpaperApplicationSwitch')){
+        $window.FindName($name).IsChecked=$true
+        $configuration=$ui.Configuration
+        Assert ($configuration.BatteryCare -eq 0 -and $configuration.WallpaperPlayback -eq 0 -and $configuration.WallpaperAudio -eq 0 -and $configuration.WallpaperApplication -eq 0) ('Disabled switch bypassed configuration guard: '+$name)
+        $window.FindName($name).IsChecked=$null
+    }
+    foreach($performance in @($false,$true)){
+        $ui.ApplyPreset($performance)
+        Assert ($ui.Configuration.FanProfile -eq 0) 'Preset selected an action for absent ScreenXpert'
+        foreach($name in @('FanWhisper','FanPerformance','FanStandard')){Assert ($window.FindName($name).IsChecked -eq $false) 'Preset left checked disabled fan choice'}
+        Assert ($ui.Configuration.WallpaperPlayback -eq 0 -and $ui.Configuration.WallpaperAudio -eq 0 -and $ui.Configuration.WallpaperApplication -eq 0) 'Preset selected missing Wallpaper Engine action'
+    }
+    foreach($values in @(@($true,$false,$false),@($false,$true,$false),@($false,$false,$true))){
+        SetPrograms $values[0] $values[1] $values[2]
+        Assert ($window.FindName('PerformanceSection').IsEnabled -eq $values[0] -and $window.FindName('WallpaperSection').IsEnabled -eq $values[1] -and $window.FindName('ArmourySection').IsEnabled -eq $values[2]) 'Availability categories are coupled'
+    }
+    SetPrograms $true $true $true
+    $ui.ResetScript();$window.FindName('FanWhisper').IsChecked=$true;$window.FindName('WallpaperAudioSwitch').IsChecked=$true
+    Assert ($ui.Configuration.FanProfile -eq 1 -and $ui.Configuration.WallpaperAudio -eq 1) 'Newly installed program did not become editable'
+    SetPrograms $actual.ScreenXpert $actual.WallpaperEngine $actual.ArmouryCrate
+    'PASS: '+$script:checks+' checks; independent installation gates, disabled appearance/focus/expansion, action cleanup, presets and configuration guards. Native probe: ScreenXpert='+$actual.ScreenXpert+', WallpaperEngine='+$actual.WallpaperEngine+', ArmouryCrate='+$actual.ArmouryCrate+'; '+$timer.ElapsedMilliseconds+' ms.'
+}finally{$window.Close()}

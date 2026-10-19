@@ -61,7 +61,7 @@ try {
     [void]$brightness.ApplyTemplate()
     $state=$brightness.Template.FindName('SwitchState',$brightness)
     Assert ($null -ne $state) 'Brightness switch has no state label'
-    Assert ($state.Text -eq 'Выкл.') 'Initial brightness label is not Off'
+    Assert ($state.Text -eq 'Не менять') 'Initial brightness label is not unchanged'
     $slider.Value=37;$brightness.IsChecked=$true
     Assert ($slider.IsEnabled -eq $brightness.IsEnabled) 'Brightness slider does not follow the switch and capability'
     Assert ($state.Text -eq 'Вкл.') 'Enabled brightness label is not On'

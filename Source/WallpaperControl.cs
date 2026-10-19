@@ -17,7 +17,7 @@ public static class WallpaperControl
     [DllImport("user32.dll",CharSet=CharSet.Unicode)]static extern int GetClassName(IntPtr hwnd,StringBuilder text,int count);
     [DllImport("user32.dll")]static extern bool PostThreadMessage(uint thread,uint message,IntPtr w,IntPtr l);
     static bool ValidPath(string path){try{return File.Exists(path)&&String.Equals(FileVersionInfo.GetVersionInfo(path).ProductName,"Wallpaper Engine",StringComparison.OrdinalIgnoreCase);}catch{return false;}}
-    static string FindInstalled()
+    public static string FindInstalled()
     {
         List<string> folders=new List<string>();List<string> steamFolders=new List<string>();
         foreach(RegistryHive hive in new[]{RegistryHive.CurrentUser,RegistryHive.LocalMachine})foreach(RegistryView view in new[]{RegistryView.Registry64,RegistryView.Registry32}){

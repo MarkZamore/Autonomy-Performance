@@ -1,5 +1,7 @@
 ﻿using System;using System.Collections.Generic;using System.IO;using System.Reflection;using System.Runtime.InteropServices;using System.Windows;using System.Windows.Controls;using System.Windows.Controls.Primitives;using System.Windows.Input;using System.Windows.Markup;using System.Windows.Media;using System.Windows.Media.Imaging;using Microsoft.Win32;
 
+using System.Windows.Interop;using System.Windows.Threading;
+
 public sealed class ConstructorWindow
 {
     public Window Window {get;private set;}
@@ -8,6 +10,7 @@ public sealed class ConstructorWindow
     readonly ToggleButton brightnessToggle;readonly Slider brightnessSlider,nightLightSlider;readonly ComboBox displaySelector,resolutionSelector,refreshSelector,scaleSelector,contentBrightnessSelector;readonly TextBlock displayUnavailable;
     static readonly string[] switchNames={"EnergySaverSwitch","DarkThemeSwitch","HdrSwitch","PresenceSleepSwitch","PresenceDimSwitch","AdaptiveBrightnessSwitch","ScreenSaverSwitch","UsbPowerSwitch","WallpaperPlaybackSwitch","WallpaperAudioSwitch","BatteryCareSwitch","WallpaperApplicationSwitch","TaskbarRepairSwitch","NightLightSwitch","DynamicRefreshSwitch","BatteryPercentageSwitch","ClockSecondsSwitch","PresenceWakeSwitch","PresenceOnlookerSwitch"};
     bool updating,updatingDisplays;
+    readonly DispatcherTimer displayRefreshTimer;HwndSource displayMessageSource;bool displayRefreshRunning,displayRefreshPending,displayObserverClosed;
     string savedScriptState;
     readonly Dictionary<string,DisplayModeConfiguration> displaySettings=new Dictionary<string,DisplayModeConfiguration>(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string,DisplayInfo> knownDisplays=new Dictionary<string,DisplayInfo>(StringComparer.OrdinalIgnoreCase);
@@ -34,7 +37,7 @@ public sealed class ConstructorWindow
             switches[i]=(CheckBox)Window.FindName(switchNames[i]);switches[i].Checked+=SelectionChanged;switches[i].Unchecked+=SelectionChanged;switches[i].Indeterminate+=SelectionChanged;
             switches[i].PreviewMouseLeftButtonDown+=SwitchPointerDown;switches[i].PreviewKeyDown+=SwitchKeyDown;
             ControlMotion.AttachSwitch(switches[i]);
-            System.Windows.Automation.AutomationProperties.SetHelpText(switches[i],"Слева - выключить, в центре - не менять, справа - включить. Стрелки влево и вправо выбирают состояние; стрелка вниз - не менять.");
+            System.Windows.Automation.AutomationProperties.SetHelpText(switches[i],"Нажатие: не менять - включить - выключить - не менять. Стрелки влево и вправо выбирают состояние; стрелка вниз - не менять.");
             if(switches[i].Name=="TaskbarRepairSwitch")System.Windows.Automation.AutomationProperties.SetHelpText(switches[i],"Слева - не менять, в центре - режим 1, справа - режим 2.");
         }
         save=(Button)Window.FindName("SaveButton");iconButton=(Button)Window.FindName("IconButton");currentIcon=(Image)Window.FindName("CurrentIcon");popup=(Popup)Window.FindName("IconPopup");icons=(UniformGrid)Window.FindName("IconGrid");status=(TextBlock)Window.FindName("Status");preview=(TextBox)Window.FindName("ScriptPreview");
@@ -51,13 +54,14 @@ public sealed class ConstructorWindow
         displaySelector=(ComboBox)Window.FindName("DisplaySelector");refreshSelector=(ComboBox)Window.FindName("RefreshSelector");displayUnavailable=(TextBlock)Window.FindName("DisplayUnavailable");
         resolutionSelector=(ComboBox)Window.FindName("ResolutionSelector");
         scaleSelector=(ComboBox)Window.FindName("ScaleSelector");contentBrightnessSelector=(ComboBox)Window.FindName("ContentBrightnessSelector");
-        contentBrightnessSelector.ItemsSource=new[]{new ContentChoice{Value=0,Label="Не менять яркость с учётом содержимого"},new ContentChoice{Value=2,Label="Откл."},new ContentChoice{Value=1,Label="Всегда"},new ContentChoice{Value=3,Label="Только при питании от батареи"}};contentBrightnessSelector.SelectedIndex=0;
+        contentBrightnessSelector.ItemsSource=new[]{new ContentChoice{Value=0,Label="Не менять яркость с учётом содержимого"},new ContentChoice{Value=1,Label="Всегда"},new ContentChoice{Value=3,Label="Только при питании от батареи"}};contentBrightnessSelector.SelectedIndex=0;
         nightLightSlider=(Slider)Window.FindName("NightLightSlider");nightLightSlider.ValueChanged+=delegate{SelectionChanged(null,null);};
         brightnessToggle=(ToggleButton)Window.FindName("BrightnessToggleButton");brightnessSlider=(Slider)Window.FindName("BrightnessSlider");
         ControlMotion.AttachSwitch((CheckBox)brightnessToggle);
         brightnessToggle.PreviewMouseLeftButtonDown+=SwitchPointerDown;brightnessToggle.PreviewKeyDown+=SwitchKeyDown;
         brightnessToggle.Checked+=SelectionChanged;brightnessToggle.Unchecked+=SelectionChanged;brightnessSlider.ValueChanged+=delegate{SelectionChanged(null,null);};
         displaySelector.SelectionChanged+=delegate{if(!updatingDisplays)LoadDisplayEditor();};
+        displaySelector.DropDownOpened+=delegate{RefreshDisplays();};
         resolutionSelector.SelectionChanged+=delegate{if(!updatingDisplays){RefreshRates();DisplaySelectionChanged(null,null);}};
         refreshSelector.SelectionChanged+=delegate{DisplaySelectionChanged(null,null);};
         scaleSelector.SelectionChanged+=delegate{DisplaySelectionChanged(null,null);};contentBrightnessSelector.SelectionChanged+=delegate{DisplaySelectionChanged(null,null);};
@@ -67,7 +71,14 @@ public sealed class ConstructorWindow
         foreach(string categoryName in new[]{"PerformanceSection","WallpaperSection","ArmourySection","PowerSection","DisplaySection","AdditionalSection"}){
             Expander category=(Expander)Window.FindName(categoryName);
             category.Expanded+=CategoryStateChanged;category.Collapsed+=CategoryStateChanged;
+            category.IsEnabledChanged+=delegate(object sender,DependencyPropertyChangedEventArgs e){Expander section=(Expander)sender;if(!section.IsEnabled)section.IsExpanded=false;};
         }
+        RefreshProgramAvailability();
+        displayRefreshTimer=new DispatcherTimer(DispatcherPriority.Background,Window.Dispatcher){Interval=TimeSpan.FromMilliseconds(150)};
+        displayRefreshTimer.Tick+=delegate{displayRefreshTimer.Stop();RefreshDisplays();};
+        Window.SourceInitialized+=delegate{displayMessageSource=HwndSource.FromHwnd(new WindowInteropHelper(Window).Handle);if(displayMessageSource!=null)displayMessageSource.AddHook(DisplayMessage);};
+        Window.Closed+=delegate{displayObserverClosed=true;displayRefreshTimer.Stop();if(displayMessageSource!=null){displayMessageSource.RemoveHook(DisplayMessage);displayMessageSource=null;}};
+        Window.Activated+=delegate{RefreshProgramAvailability();QueueDisplayRefresh();};
         RefreshDisplays();
         RefreshHardware();
         ((TextBlock)Window.FindName("BatteryWear")).Text=BatteryHealth.Read();
@@ -76,7 +87,9 @@ public sealed class ConstructorWindow
     void CategoryStateChanged(object sender,RoutedEventArgs e)
     {
         if(e.OriginalSource!=sender)return;
-        AnimateCategory((Expander)sender,Window.IsLoaded&&SystemParameters.ClientAreaAnimation);
+        Expander category=(Expander)sender;
+        if(!category.IsEnabled&&category.IsExpanded){category.IsExpanded=false;return;}
+        AnimateCategory(category,Window.IsLoaded&&SystemParameters.ClientAreaAnimation);
     }
     void AnimateCategory(Expander category,bool animate)
     {
@@ -125,29 +138,64 @@ public sealed class ConstructorWindow
     }
     static int SwitchValue(CheckBox control){return !control.IsEnabled?0:control.IsChecked.HasValue?(control.IsChecked.Value?1:2):0;}
     void SetAvailable(string name,bool available){CheckBox control=Action(name);control.IsEnabled=available;if(!available)control.IsChecked=null;}
+    void RefreshProgramAvailability(){ProgramAvailabilitySnapshot programs=ProgramAvailability.Read();ApplyProgramAvailability(programs.ScreenXpert,programs.WallpaperEngine,programs.ArmouryCrate);}
+    void ApplyProgramAvailability(bool screenXpert,bool wallpaperEngine,bool armouryCrate)
+    {
+        bool previous=updating;updating=true;
+        try{
+            SetProgramCategoryAvailable("PerformanceSection",screenXpert,new[]{"FanWhisper","FanPerformance","FanStandard","BatteryCareSwitch"});
+            SetProgramCategoryAvailable("WallpaperSection",wallpaperEngine,new[]{"WallpaperPlaybackSwitch","WallpaperAudioSwitch","WallpaperApplicationSwitch"});
+            SetProgramCategoryAvailable("ArmourySection",armouryCrate,new string[0]);
+        }finally{updating=previous;}
+        SelectionChanged(null,null);
+    }
+    void SetProgramCategoryAvailable(string name,bool available,string[] actions)
+    {
+        Expander category=(Expander)Window.FindName(name);category.IsEnabled=available;
+        if(!available)category.IsExpanded=false;
+        foreach(string action in actions){CheckBox control=Action(action);control.IsEnabled=available;if(!available)control.IsChecked=control.IsThreeState?(bool?)null:false;}
+    }
     void RefreshHardware(){bool previous=updating;updating=true;try{SetAvailable("PresenceWakeSwitch",SensorCapabilities.HasPresence(2));SetAvailable("PresenceOnlookerSwitch",SensorCapabilities.HasPresence(3));SetAvailable("PresenceSleepSwitch",SensorCapabilities.HasPresence(false));SetAvailable("PresenceDimSwitch",SensorCapabilities.HasPresence(true));SetAvailable("AdaptiveBrightnessSwitch",SensorCapabilities.HasAmbientLight()&&SensorCapabilities.HasBrightness());SetAvailable("NightLightSwitch",NightLightControl.Available());SetAvailable("BatteryPercentageSwitch",SensorCapabilities.HasBattery());}finally{updating=previous;}SelectionChanged(null,null);}
     CheckBox[] WireExclusiveChoices(string[] names){CheckBox[] result=new CheckBox[names.Length];for(int i=0;i<names.Length;i++){result[i]=(CheckBox)Window.FindName(names[i]);result[i].Checked+=ExclusiveSelectionChanged;result[i].Unchecked+=ExclusiveSelectionChanged;}return result;}
-    static int SelectedMode(CheckBox[] choices){for(int i=0;i<choices.Length;i++)if(choices[i].IsChecked==true)return i+1;return 0;}
+    static int SelectedMode(CheckBox[] choices){for(int i=0;i<choices.Length;i++)if(choices[i].IsEnabled&&choices[i].IsChecked==true)return i+1;return 0;}
+    static void CycleSwitch(CheckBox control)
+    {
+        if(!control.IsThreeState)control.IsChecked=control.IsChecked!=true;
+        else if(control.Name=="TaskbarRepairSwitch")control.IsChecked=control.IsChecked==false?null:control.IsChecked==null?(bool?)true:false;
+        else control.IsChecked=control.IsChecked==null?true:control.IsChecked==true?(bool?)false:null;
+    }
     void SwitchPointerDown(object sender,MouseButtonEventArgs e)
     {
-        CheckBox control=(CheckBox)sender;FrameworkElement track=control.Template.FindName("SwitchTrack",control) as FrameworkElement;
-        if(track==null)return;Point p=e.GetPosition(track);
-        if(p.X<0||p.X>track.ActualWidth||p.Y<0||p.Y>track.ActualHeight){if(control.Name=="TaskbarRepairSwitch"){control.Focus();control.IsChecked=control.IsChecked==false?null:control.IsChecked==null?(bool?)true:false;e.Handled=true;}return;}
-        control.Focus();control.IsChecked=control.Name=="BrightnessToggleButton"?(bool?)(p.X>=track.ActualWidth/2):p.X<track.ActualWidth/3?false:p.X>track.ActualWidth*2/3?(bool?)true:null;e.Handled=true;
+        CheckBox control=(CheckBox)sender;if(!control.IsEnabled)return;
+        FrameworkElement track=control.Template.FindName("SwitchTrack",control) as FrameworkElement;bool trackHit=false;
+        // Sliders handle their own pointer input, including clicks on the track and thumb.
+        for(DependencyObject source=e.OriginalSource as DependencyObject;source!=null&&source!=control;){
+            if(source is Slider)return;
+            if(source==track)trackHit=true;
+            FrameworkContentElement content=source as FrameworkContentElement;
+            source=source is Visual?VisualTreeHelper.GetParent(source):content!=null?content.Parent:null;
+        }
+        Point p=track==null?new Point(-1,-1):e.GetPosition(track);
+        control.Focus();
+        if(!trackHit||track==null||p.X<0||p.X>track.ActualWidth||p.Y<0||p.Y>track.ActualHeight)CycleSwitch(control);
+        else control.IsChecked=SwitchPosition(control.IsThreeState,p.X/track.ActualWidth);
+        e.Handled=true;
     }
+    static bool? SwitchPosition(bool threeState,double position){return !threeState?(bool?)(position>=0.5):position<1.0/3?false:position>2.0/3?(bool?)true:null;}
     void SwitchKeyDown(object sender,KeyEventArgs e)
     {
         CheckBox control=(CheckBox)sender;
+        if(!control.IsEnabled)return;
         if(control.Name=="NightLightSwitch"&&nightLightSlider.IsKeyboardFocusWithin)return;
         if(control.Name=="BrightnessToggleButton"&&brightnessSlider.IsKeyboardFocusWithin)return;
+        if(e.Key==Key.Space){CycleSwitch(control);e.Handled=true;return;}
         if(control.Name=="BrightnessToggleButton"){
             if(e.Key==Key.Left||e.Key==Key.Home||e.Key==Key.Delete)control.IsChecked=false;
             else if(e.Key==Key.Right||e.Key==Key.End)control.IsChecked=true;else return;e.Handled=true;return;
         }
         if(control.Name=="TaskbarRepairSwitch"){
             int value=control.IsChecked==false?0:control.IsChecked==true?2:1;
-            if(e.Key==Key.Space)value=(value+1)%3;
-            else if(e.Key==Key.Left||e.Key==Key.Down)value=Math.Max(0,value-1);
+            if(e.Key==Key.Left||e.Key==Key.Down)value=Math.Max(0,value-1);
             else if(e.Key==Key.Right||e.Key==Key.Up)value=Math.Min(2,value+1);
             else if(e.Key==Key.Home||e.Key==Key.Delete)value=0;else if(e.Key==Key.End)value=2;else return;
             control.IsChecked=value==0?(bool?)false:value==2?(bool?)true:null;e.Handled=true;return;
@@ -164,7 +212,7 @@ public sealed class ConstructorWindow
         try{
             foreach(CheckBox check in switches)check.IsChecked=check.Name=="TaskbarRepairSwitch"?(bool?)false:null;
             for(int i=0;i<powerChecks.Length;i++)powerChecks[i].IsChecked=performance&&i==2;
-            for(int i=0;i<fanChecks.Length;i++)fanChecks[i].IsChecked=i==(performance?1:0);
+            for(int i=0;i<fanChecks.Length;i++)fanChecks[i].IsChecked=fanChecks[i].IsEnabled&&i==(performance?1:0);
             Action("EnergySaverSwitch").IsChecked=!performance;
             displaySettings.Clear();nightLightSlider.Value=50;
             if(performance)foreach(DisplayInfo display in displaySelector.Items)if(DisplayBrightnessControl.Available(display.MonitorId))displaySettings[display.MonitorId]=new DisplayModeConfiguration{DisplayId=display.MonitorId,Brightness=100};
@@ -197,16 +245,47 @@ public sealed class ConstructorWindow
     }
     void RefreshDisplays()
     {
-        CaptureDisplayEditor();DisplayInfo old=displaySelector.SelectedItem as DisplayInfo;
-        updatingDisplays=true;
+        if(displayObserverClosed)return;
+        if(displayRefreshRunning){displayRefreshPending=true;return;}
+        displayRefreshRunning=true;displayRefreshPending=false;
         try{
             List<DisplayInfo> displays;
             try{displays=DisplayControl.Enumerate();}catch{displays=new List<DisplayInfo>();}
+            ApplyDisplayList(displays);
+        }finally{displayRefreshRunning=false;if(displayRefreshPending)QueueDisplayRefresh();}
+    }
+    void QueueDisplayRefresh(){if(displayObserverClosed)return;if(displayRefreshRunning){displayRefreshPending=true;return;}displayRefreshTimer.Stop();displayRefreshTimer.Start();}
+    IntPtr DisplayMessage(IntPtr hwnd,int message,IntPtr wParam,IntPtr lParam,ref bool handled)
+    {
+        // Display mode changes also arrive when a screen is disabled in Windows.
+        // Device notifications cover monitor connection changes with unchanged desktop size.
+        long deviceEvent=wParam.ToInt64();
+        if(message==0x7E||(message==0x219&&(deviceEvent==7||deviceEvent==0x8000||deviceEvent==0x8004)))QueueDisplayRefresh();
+        return IntPtr.Zero;
+    }
+    static bool SameRates(List<uint> left,List<uint> right){if(left.Count!=right.Count)return false;for(int i=0;i<left.Count;i++)if(left[i]!=right[i])return false;return true;}
+    bool SameDisplayList(List<DisplayInfo> displays)
+    {
+        if(displaySelector.Items.Count!=displays.Count)return false;
+        for(int i=0;i<displays.Count;i++){
+            DisplayInfo a=displaySelector.Items[i] as DisplayInfo,b=displays[i];
+            if(a==null||!String.Equals(a.MonitorId,b.MonitorId,StringComparison.OrdinalIgnoreCase)||a.DeviceName!=b.DeviceName||a.Label!=b.Label||a.Width!=b.Width||a.Height!=b.Height||a.CurrentRate!=b.CurrentRate||a.RecommendedWidth!=b.RecommendedWidth||a.RecommendedHeight!=b.RecommendedHeight||!SameRates(a.Rates,b.Rates)||a.Resolutions.Count!=b.Resolutions.Count)return false;
+            for(int j=0;j<a.Resolutions.Count;j++){DisplayResolution x=a.Resolutions[j],y=b.Resolutions[j];if(x.Width!=y.Width||x.Height!=y.Height||x.IsRecommended!=y.IsRecommended||!SameRates(x.Rates,y.Rates))return false;}
+        }
+        return true;
+    }
+    void ApplyDisplayList(List<DisplayInfo> displays)
+    {
+        if(SameDisplayList(displays)&&displaySelector.ItemsSource!=null)return;
+        CaptureDisplayEditor();DisplayInfo old=displaySelector.SelectedItem as DisplayInfo;
+        bool previous=updatingDisplays;updatingDisplays=true;
+        try{
+            displaySelector.IsDropDownOpen=false;
             foreach(DisplayInfo display in displays)knownDisplays[display.MonitorId]=display;
             displaySelector.ItemsSource=displays;DisplayInfo selected=old==null?null:displays.Find(delegate(DisplayInfo d){return String.Equals(d.MonitorId,old.MonitorId,StringComparison.OrdinalIgnoreCase);});
             displaySelector.SelectedItem=selected??(displays.Count==0?null:displays[0]);
             displayUnavailable.Visibility=displays.Count==0?Visibility.Visible:Visibility.Collapsed;
-        }finally{updatingDisplays=false;}
+        }finally{updatingDisplays=previous;}
         LoadDisplayEditor();
     }
     void LoadDisplayEditor(){

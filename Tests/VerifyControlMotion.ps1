@@ -44,7 +44,7 @@ try{
     $brightness=$win.FindName('BrightnessToggleButton');[void]$brightness.ApplyTemplate()
     $brightnessTrack=$brightness.Template.FindName('SwitchTrack',$brightness);$brightnessThumb=$brightness.Template.FindName('SwitchThumb',$brightness);$brightnessLabel=$brightness.Template.FindName('SwitchState',$brightness)
     Assert ($brightness -is [Windows.Controls.CheckBox] -and -not $brightness.IsThreeState -and $null -eq $brightness.Template.FindName('SunSlash',$brightness)) 'Brightness is not a binary switch replacing the sun icon'
-    Assert ([Math]::Abs($brightnessThumb.RenderTransform.X) -lt 0.01 -and $brightnessLabel.Text -eq 'Выкл.' -and $brightnessTrack.Background.Color -eq [Windows.Media.Color]::FromArgb(77,97,113,128) -and $brightnessThumb.Fill.Color -eq $blue) 'Disabled brightness does not use left neutral colors'
+    Assert ([Math]::Abs($brightnessThumb.RenderTransform.X) -lt 0.01 -and $brightnessLabel.Text -eq 'Не менять' -and $brightnessTrack.Background.Color -eq [Windows.Media.Color]::FromArgb(77,97,113,128) -and $brightnessThumb.Fill.Color -eq $blue) 'Unchanged brightness does not use left neutral colors and label'
     $brightness.IsChecked=$true
     if([Windows.SystemParameters]::ClientAreaAnimation){Frame 35;Assert ($brightnessThumb.RenderTransform.X -gt 0 -and $brightnessThumb.RenderTransform.X -lt 46 -and $brightnessTrack.Background.HasAnimatedProperties) ('Brightness thumb or palette jumps instead of animating: X='+$brightnessThumb.RenderTransform.X+' Loaded='+$brightness.IsLoaded+' Clock='+$brightnessTrack.Background.HasAnimatedProperties)}
     Frame 180

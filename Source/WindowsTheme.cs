@@ -54,7 +54,9 @@ public static class WindowsTheme
  public static bool ApplyBackdrop(Window window,bool enabled)
  {
   IntPtr hwnd=new WindowInteropHelper(window).Handle;HwndSource source=HwndSource.FromHwnd(hwnd);bool available=false;
-  if(enabled&&hwnd!=IntPtr.Zero){try{int mica=2;Margins margins=new Margins{Left=-1,Right=-1,Top=-1,Bottom=-1};available=DwmExtendFrameIntoClientArea(hwnd,ref margins)==0&&DwmSetWindowAttribute(hwnd,38,ref mica,4)==0;}catch{}}
+  // MAINWINDOW already supplies Mica behind the complete window. Extending the
+  // legacy glass frame leaves a differently shaded non-client band below the caption.
+  if(enabled&&hwnd!=IntPtr.Zero){try{int mica=2;Margins margins=new Margins();available=DwmExtendFrameIntoClientArea(hwnd,ref margins)==0&&DwmSetWindowAttribute(hwnd,38,ref mica,4)==0;}catch{}}
   if(!available&&hwnd!=IntPtr.Zero){int none=1;try{DwmSetWindowAttribute(hwnd,38,ref none,4);}catch{}}
   MicaEnabled=available;
   if(source!=null&&source.CompositionTarget!=null)source.CompositionTarget.BackgroundColor=available?Colors.Transparent:Color.FromRgb(32,32,32);

@@ -60,6 +60,23 @@
     </Style>
     <Style x:Key="Heading" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Setter Property="FontSize" Value="{StaticResource Font.Heading}"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="LineHeight" Value="{StaticResource Line.Heading}"/></Style>
     <Style x:Key="Caption" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}"/><Setter Property="FontSize" Value="{StaticResource Font.Caption}"/><Setter Property="LineHeight" Value="{StaticResource Line.Caption}"/></Style>
+    <!-- Mini-AI sources frame: a plain body caption interrupting the rounded top edge. -->
+    <Style x:Key="CaptionFrame" TargetType="GroupBox">
+        <Setter Property="FontFamily" Value="{StaticResource Font.Family}"/><Setter Property="FontSize" Value="{StaticResource Font.Body}"/><Setter Property="FontWeight" Value="Normal"/>
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text}"/><Setter Property="BorderBrush" Value="#40FFFFFF"/><Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="14,12,14,12"/><Setter Property="Margin" Value="0,8,0,0"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="GroupBox">
+            <Grid SnapsToDevicePixels="True">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="20"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <Grid.RowDefinitions><RowDefinition Height="20"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <Border Grid.Row="0" Grid.Column="0" Height="10" VerticalAlignment="Bottom" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1,1,0,0" CornerRadius="7,0,0,0"/>
+                <Border Grid.Row="0" Grid.Column="2" Height="10" VerticalAlignment="Bottom" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="0,1,1,0" CornerRadius="0,7,0,0"/>
+                <Border Grid.Row="1" Grid.ColumnSpan="3" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1,0,1,1" CornerRadius="0,0,7,7"/>
+                <Border x:Name="CaptionHost" Grid.Column="1" Padding="4,0" VerticalAlignment="Center"><ContentPresenter ContentSource="Header" RecognizesAccessKey="True"/></Border>
+                <ContentPresenter Grid.Row="1" Grid.ColumnSpan="3" Margin="{TemplateBinding Padding}"/>
+            </Grid>
+        </ControlTemplate></Setter.Value></Setter>
+    </Style>
     <Style x:Key="CategoryIcon" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Setter Property="FontFamily" Value="{StaticResource Font.Icons}"/><Setter Property="FontSize" Value="{StaticResource Size.CategoryIcon}"/><Setter Property="LineHeight" Value="{StaticResource Line.Heading}"/><Setter Property="Width" Value="{StaticResource Size.CategoryIcon}"/><Setter Property="Margin" Value="{StaticResource Gap.CategoryIcon}"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="TextWrapping" Value="NoWrap"/></Style>
     <Style x:Key="AppCategoryIcon" TargetType="Image"><Setter Property="Width" Value="20"/><Setter Property="Height" Value="20"/><Setter Property="Margin" Value="{StaticResource Gap.CategoryIcon}"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Stretch" Value="Uniform"/></Style>
 
@@ -109,6 +126,20 @@
                 <MultiTrigger><MultiTrigger.Conditions><Condition Property="IsChecked" Value="True"/><Condition Property="IsMouseOver" Value="True"/></MultiTrigger.Conditions><Setter TargetName="Box" Property="Background" Value="{DynamicResource Brush.CheckFillHover}"/></MultiTrigger>
                 <MultiTrigger><MultiTrigger.Conditions><Condition Property="IsChecked" Value="True"/><Condition Property="IsPressed" Value="True"/></MultiTrigger.Conditions><Setter TargetName="Box" Property="Background" Value="{DynamicResource Brush.CheckFillPressed}"/></MultiTrigger>
                 <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Box" Property="Background" Value="{DynamicResource Brush.SurfaceDisabled}"/><Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Brush.TextDisabled}"/><Setter TargetName="CheckContent" Property="Opacity" Value="0.4"/><Setter TargetName="Tick" Property="Opacity" Value="0.4"/></Trigger>
+            </ControlTemplate.Triggers>
+        </ControlTemplate></Setter.Value></Setter>
+    </Style>
+
+    <Style x:Key="IconActionButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Width" Value="32"/><Setter Property="Height" Value="32"/><Setter Property="MinHeight" Value="32"/><Setter Property="Padding" Value="0"/>
+        <Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button">
+            <Grid Background="Transparent"><ContentPresenter x:Name="IconContent" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/></Grid>
+            <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource Brush.Text}"/></Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="Foreground" Value="{DynamicResource Brush.CheckFill}"/></Trigger>
+                <Trigger Property="IsPressed" Value="True"><Setter TargetName="IconContent" Property="Opacity" Value="0.55"/></Trigger>
+                <Trigger Property="IsEnabled" Value="False"><Setter TargetName="IconContent" Property="Opacity" Value="0.35"/></Trigger>
             </ControlTemplate.Triggers>
         </ControlTemplate></Setter.Value></Setter>
     </Style>

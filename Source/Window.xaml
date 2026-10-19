@@ -70,10 +70,13 @@
                         <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="ScreenXpertIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.ScreenXpert}"/><TextBlock Grid.Column="1" Text="ScreenXpert" VerticalAlignment="Center"/></Grid></Expander.Header>
                         <StackPanel>
                             <CheckBox x:Name="BatteryCareSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Режим бережной зарядки"/></CheckBox>
-                            <TextBlock Text="Режим вентилятора" Style="{StaticResource Caption}" Margin="{StaticResource Gap.FieldLabel}"/>
-                            <CheckBox x:Name="FanPerformance"><TextBlock Text="Режим высокой производительности"/></CheckBox>
-                            <CheckBox x:Name="FanStandard"><TextBlock Text="Стандартный режим"/></CheckBox>
-                            <CheckBox x:Name="FanWhisper"><TextBlock Text="Тихий режим"/></CheckBox>
+                            <GroupBox x:Name="FanModesGroup" Header="Режим вентилятора" Style="{StaticResource CaptionFrame}">
+                                <StackPanel>
+                                    <CheckBox x:Name="FanPerformance"><TextBlock Text="Режим высокой производительности"/></CheckBox>
+                                    <CheckBox x:Name="FanStandard"><TextBlock Text="Стандартный режим"/></CheckBox>
+                                    <CheckBox x:Name="FanWhisper"><TextBlock Text="Тихий режим"/></CheckBox>
+                                </StackPanel>
+                            </GroupBox>
                         </StackPanel>
                     </Expander>
                     <Expander x:Name="WallpaperSection" AutomationProperties.Name="Wallpaper Engine">
@@ -90,7 +93,7 @@
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                        <Button x:Name="ResetScriptButton" Width="32" Height="32" MinHeight="32" Padding="0" Margin="0,0,8,0" VerticalAlignment="Top" AutomationProperties.Name="Сбросить настройки скрипта"><TextBlock Text="&#xE777;" FontFamily="{StaticResource Font.Icons}" FontSize="16" TextWrapping="NoWrap"/></Button>
+                        <Button x:Name="ResetScriptButton" Style="{StaticResource IconActionButton}" Margin="0,0,8,0" VerticalAlignment="Top" AutomationProperties.Name="Сбросить настройки скрипта"><TextBlock Text="&#xE777;" FontFamily="{StaticResource Font.Icons}" FontSize="16" TextWrapping="NoWrap"/></Button>
                         <TextBlock Grid.Column="1" Text="Предпросмотр скрипта" Style="{StaticResource Heading}" VerticalAlignment="Center"/>
                     </Grid>
                     <TextBox x:Name="ScriptPreview" Grid.Row="1" Margin="{StaticResource Pad.Preview}" Style="{StaticResource PreviewTextBox}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Предпросмотр скрипта"/>

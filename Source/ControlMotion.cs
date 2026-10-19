@@ -33,6 +33,7 @@ public static class ControlMotion
         TextBlock label=control.Template.FindName("SwitchState",control) as TextBlock;
         if(label!=null){
             string on="Вкл.",off="Выкл.";
+            if(binary)off="Не менять";
             if(control.Name=="WallpaperPlaybackSwitch"){on="Возобновить";off="Пауза";}
             if(control.Name=="WallpaperAudioSwitch"){on="Вкл. звук";off="Выкл. звук";}
             if(control.Name=="WallpaperApplicationSwitch"){on="Запустить";off="Завершить";}
