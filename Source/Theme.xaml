@@ -232,7 +232,7 @@
     <Style x:Key="ScrollPageButton" TargetType="RepeatButton"><Setter Property="Focusable" Value="False"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"/></ControlTemplate></Setter.Value></Setter></Style>
     <!-- Only the indicator changes width; settings reserve a separate gutter. -->
     <Style x:Key="ScrollThumb" TargetType="Thumb">
-        <Setter Property="MinHeight" Value="24"/>
+        <!-- Track owns proportional height; MinHeight here clips a short rounded thumb. -->
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Thumb">
             <Border Background="Transparent"><Border x:Name="ThumbSurface" Width="{StaticResource Size.ScrollThumb}" HorizontalAlignment="Center" Background="{DynamicResource Brush.ScrollThumb}" CornerRadius="{StaticResource Radius.Scrollbar}"/></Border>
             <ControlTemplate.Triggers>

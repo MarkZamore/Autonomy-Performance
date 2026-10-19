@@ -7,6 +7,7 @@ public sealed class ConstructorWindow
     public Window Window {get;private set;}
     public readonly IconSelection IconChoice=new IconSelection();
     readonly CheckBox[] powerChecks,switches;readonly Button save,iconButton;readonly Image currentIcon;readonly Popup popup;readonly UniformGrid icons;readonly TextBlock status;readonly ScrollViewer preview;readonly ItemsControl previewItems;readonly TextBlock previewEmpty;
+    readonly CheckBox addToStartMenu;
     readonly ToggleButton brightnessToggle;readonly Slider brightnessSlider,nightLightSlider;readonly ComboBox fanSelector,displaySelector,resolutionSelector,refreshSelector,scaleSelector,contentBrightnessSelector;readonly TextBlock displayUnavailable;
     static readonly string[] switchNames={"EnergySaverSwitch","DarkThemeSwitch","HdrSwitch","PresenceSleepSwitch","PresenceDimSwitch","AdaptiveBrightnessSwitch","ScreenSaverSwitch","UsbPowerSwitch","WallpaperPlaybackSwitch","WallpaperAudioSwitch","BatteryCareSwitch","WallpaperApplicationSwitch","TaskbarRepairSwitch","NightLightSwitch","DynamicRefreshSwitch","BatteryPercentageSwitch","ClockSecondsSwitch","PresenceWakeSwitch","PresenceOnlookerSwitch"};
     bool updating,updatingDisplays;
@@ -45,6 +46,8 @@ public sealed class ConstructorWindow
             if(switches[i].Name=="TaskbarRepairSwitch")System.Windows.Automation.AutomationProperties.SetHelpText(switches[i],"На тумблере: слева - не менять, в центре - режим 1, справа - режим 2. Пробел переключает состояние.");
         }
         save=(Button)Window.FindName("SaveButton");iconButton=(Button)Window.FindName("IconButton");currentIcon=(Image)Window.FindName("CurrentIcon");popup=(Popup)Window.FindName("IconPopup");icons=(UniformGrid)Window.FindName("IconGrid");status=(TextBlock)Window.FindName("Status");preview=(ScrollViewer)Window.FindName("ScriptPreview");previewItems=(ItemsControl)Window.FindName("PreviewActions");previewEmpty=(TextBlock)Window.FindName("PreviewEmpty");
+        addToStartMenu=(CheckBox)Window.FindName("AddToStartMenu");
+        addToStartMenu.Checked+=delegate{UpdateSaveState();};addToStartMenu.Unchecked+=delegate{UpdateSaveState();};
         save.Click+=SaveClicked;iconButton.Click+=delegate{RefreshIcons();popup.IsOpen=!popup.IsOpen;};
         ((Button)Window.FindName("ResetScriptButton")).Click+=delegate{ResetScript();};
         preview.PreviewMouseLeftButtonDown+=PreviewPointerDown;preview.PreviewMouseMove+=PreviewPointerMove;preview.PreviewMouseLeftButtonUp+=PreviewPointerUp;
@@ -509,7 +512,7 @@ public sealed class ConstructorWindow
 
     string ScriptState()
     {
-        using(System.Security.Cryptography.SHA256 hash=System.Security.Cryptography.SHA256.Create())return new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(Configuration)+":"+Convert.ToBase64String(hash.ComputeHash(IconChoice.GetBytes()));
+        using(System.Security.Cryptography.SHA256 hash=System.Security.Cryptography.SHA256.Create())return new System.Web.Script.Serialization.JavaScriptSerializer().Serialize(Configuration)+":"+Convert.ToBase64String(hash.ComputeHash(IconChoice.GetBytes()))+":"+(addToStartMenu.IsChecked==true?"1":"0");
     }
     void UpdateSaveState(){save.IsEnabled=Configuration.HasActions&&ScriptState()!=savedScriptState;}
     public static BitmapSource ImageSource(byte[] data){using(MemoryStream s=new MemoryStream(data)){BitmapDecoder decoder=BitmapDecoder.Create(s,BitmapCreateOptions.PreservePixelFormat,BitmapCacheOption.OnLoad);BitmapFrame chosen=decoder.Frames[0];foreach(BitmapFrame f in decoder.Frames)if(f.PixelWidth>chosen.PixelWidth)chosen=f;chosen.Freeze();return chosen;}}
@@ -555,7 +558,12 @@ public sealed class ConstructorWindow
     }
     void SaveToPath(string path)
     {
-        ExecutableExporter.Save(path,Configuration,IconChoice.GetBytes());IconChoice.Saved();savedScriptState=ScriptState();RefreshIcons();status.Text="";
+        ExecutableExporter.Save(path,Configuration,IconChoice.GetBytes());
+        if(addToStartMenu.IsChecked==true){
+            try{StartMenuShortcuts.Create(path);}
+            catch{status.Text="Скрипт сохранён, но не удалось создать ярлык в меню «Пуск». Проверьте доступ к папке меню «Пуск» и повторите сохранение.";status.Foreground=(Brush)Window.FindResource("Brush.TextMuted");UpdateSaveState();return;}
+        }
+        IconChoice.Saved();savedScriptState=ScriptState();RefreshIcons();status.Text="";
     }
     void SaveClicked(object sender,RoutedEventArgs e)
     {
@@ -594,5 +602,5 @@ public static class ConstructorApp
         return Run();
     }
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-    static int Run(){try{Application app=new Application();app.ShutdownMode=ShutdownMode.OnMainWindowClose;ConstructorWindow ui=new ConstructorWindow();return app.Run(ui.Window);}catch{return 1;}}
+    static int Run(){try{Application app=new Application();app.ShutdownMode=ShutdownMode.OnMainWindowClose;StartMenuShortcuts.Cleanup();ConstructorWindow ui=new ConstructorWindow();return app.Run(ui.Window);}catch{return 1;}}
 }

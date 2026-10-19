@@ -7,12 +7,16 @@ function Assert($condition,$message){if(-not $condition){throw $message}}
 try{
     $save=$win.FindName('SaveButton');$preset=$win.FindName('PresetAutonomyButton')
     Assert (-not $save.IsEnabled) 'Empty script enables Save'
+    Assert ($win.FindName('AddToStartMenu').IsChecked -eq $true) 'Start menu shortcut is not enabled by default'
+    $win.FindName('AddToStartMenu').IsChecked=$false
     Assert ([object]::ReferenceEquals($save.Style,$preset.Style)) 'Save differs from neutral preset style'
     $ui.ApplyPreset($false);Assert ($save.IsEnabled) 'New script cannot be saved'
     $folder=Join-Path $PSScriptRoot 'Artifacts\SaveState';[void][IO.Directory]::CreateDirectory($folder)
     $method=$ui.GetType().GetMethod('SaveToPath',[Reflection.BindingFlags]'NonPublic,Instance')
     [void]$method.Invoke($ui,@([string](Join-Path $folder 'Mode.exe')))
     Assert (-not $save.IsEnabled) 'Save stays enabled after successful export'
+    $win.FindName('AddToStartMenu').IsChecked=$true;Assert ($save.IsEnabled) 'Changing shortcut delivery option does not enable Save'
+    $win.FindName('AddToStartMenu').IsChecked=$false;Assert (-not $save.IsEnabled) 'Restoring shortcut option does not restore saved state'
     Assert ($win.FindName('Status').Text -eq '') 'Successful save displays a status message'
     $ui.ApplyPreset($false);Assert (-not $save.IsEnabled) 'Identical preset falsely marks saved script changed'
     $savedTheme=$win.FindName('DarkThemeSwitch').IsChecked
