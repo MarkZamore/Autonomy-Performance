@@ -10,6 +10,10 @@ public static class HdrControl {
  const int InsufficientBuffer=122,NotSupported=50,InvalidParameter=87;
  [StructLayout(LayoutKind.Sequential)] struct Luid {public uint Low;public int High;}
  [StructLayout(LayoutKind.Sequential)] struct Rational {public uint Numerator,Denominator;}
+ [StructLayout(LayoutKind.Sequential)] struct Region {public uint Width,Height;}
+ [StructLayout(LayoutKind.Sequential)] struct VideoSignal {
+  public ulong PixelRate;public Rational Horizontal,Vertical;public Region Active,Total;public uint Standard,ScanLine;
+ }
  [StructLayout(LayoutKind.Sequential)] struct Source {public Luid Adapter;public uint Id,ModeIndex,Flags;}
  [StructLayout(LayoutKind.Sequential)] struct Target {public Luid Adapter;public uint Id,ModeIndex,Technology,Rotation,Scaling;public Rational Refresh;public uint ScanLine;public int Available;public uint Flags;}
  [StructLayout(LayoutKind.Sequential)] struct Path {public Source Source;public Target Target;public uint Flags;}
@@ -26,6 +30,7 @@ public static class HdrControl {
  [StructLayout(LayoutKind.Sequential)] struct DpiSet {public Header Header;public int Relative;}
  [StructLayout(LayoutKind.Explicit,Size=80)] struct PreferredMode {
   [FieldOffset(0)]public Header Header;[FieldOffset(20)]public uint Width;[FieldOffset(24)]public uint Height;
+  [FieldOffset(32)]public VideoSignal Signal;
  }
  [DllImport("user32.dll",EntryPoint="DisplayConfigGetDeviceInfo")]static extern int GetPreferredMode(ref PreferredMode packet);
  [DllImport("user32.dll",EntryPoint="DisplayConfigGetDeviceInfo")]static extern int GetDpi(ref DpiGet packet);
@@ -75,7 +80,64 @@ public static class HdrControl {
   return SetDisplayConfig(t.Count,t.Paths,t.ModeCount,t.Modes,0x28060)==0;
  }
  public static bool InspectDynamic(string monitorId,out bool enabled){enabled=false;try{using(Topology t=GetTopology(monitorId)){if(t==null)return false;enabled=(t.Paths[t.Index].Flags&16)!=0;return enabled||PrepareDynamic(t,true);}}catch{return false;}}
- public static DisplayChangeResult ApplyDynamic(string monitorId,bool enabled){try{using(Topology t=GetTopology(monitorId)){if(t==null)return Skip("Выбранный дисплей недоступен.");if(((t.Paths[t.Index].Flags&16)!=0)==enabled)return new DisplayChangeResult("ok","Динамическая частота уже выбрана.");if(!PrepareDynamic(t,enabled))return Skip("Динамическая частота не поддерживается текущим режимом дисплея.");if(SetDisplayConfig(t.Count,t.Paths,t.ModeCount,t.Modes,0x282A0)!=0)return Skip("Windows не применила динамическую частоту.");bool actual;return InspectDynamic(monitorId,out actual)&&actual==enabled?new DisplayChangeResult("ok","Динамическая частота обновления изменена."):Skip("Изменение динамической частоты не подтверждено.");}}catch{return Skip("Управление динамической частотой недоступно.");}}
+ // Validate DRR for a future preset mode, without changing the current display.
+ // Only driver-provided current/preferred detailed timings are accepted. A Hz
+ // label alone is insufficient to invent the pixel clock or blanking intervals.
+ public static bool InspectDynamic(string monitorId,uint width,uint height,uint rate,out bool enabled){
+  enabled=false;
+  try{
+   List<DisplayInfo> matches=DisplayControl.Enumerate().FindAll(delegate(DisplayInfo d){return String.Equals(d.MonitorId,monitorId,StringComparison.OrdinalIgnoreCase);});
+   if(matches.Count!=1||(width==0)!=(height==0))return false;
+   DisplayInfo display=matches[0];if(width==0){width=display.Width;height=display.Height;}if(rate==0)rate=display.CurrentRate;
+   if(rate<119||!display.Resolutions.Exists(delegate(DisplayResolution r){return r.Width==width&&r.Height==height&&r.Rates.Contains(rate);}))return false;
+   using(Topology t=GetTopology(monitorId)){
+    if(t==null)return false;enabled=(t.Paths[t.Index].Flags&16)!=0;
+    return PrepareDynamicMode(t,width,height,rate);
+   }
+  }catch{return false;}
+ }
+ static bool PrepareDynamicMode(Topology t,uint width,uint height,uint rate){
+    Path p=t.Paths[t.Index];
+    if((p.Flags&8)==0)return false;
+    uint sourceIndex=p.Source.ModeIndex>>16,targetIndex=p.Target.ModeIndex>>16;
+    if(sourceIndex>=t.ModeCount||targetIndex>=t.ModeCount)return false;
+    IntPtr source=IntPtr.Add(t.Modes,checked((int)sourceIndex*64)),target=IntPtr.Add(t.Modes,checked((int)targetIndex*64));
+    if(Marshal.ReadInt32(source)!=1||Marshal.ReadInt32(target)!=2)return false;
+    VideoSignal signal=(VideoSignal)Marshal.PtrToStructure(IntPtr.Add(target,16),typeof(VideoSignal));
+    if(!MatchesRate(signal.Vertical,rate)){
+     PreferredMode preferred=new PreferredMode{Header=Packet(3,typeof(PreferredMode),p.Target)};
+     if(GetPreferredMode(ref preferred)!=0||!MatchesRate(preferred.Signal.Vertical,rate))return false;
+     signal=preferred.Signal;Marshal.StructureToPtr(signal,IntPtr.Add(target,16),false);
+    }
+    uint oldWidth=unchecked((uint)Marshal.ReadInt32(source,16)),oldHeight=unchecked((uint)Marshal.ReadInt32(source,20));
+    if(oldWidth!=width||oldHeight!=height){
+     // A virtual path may have a separate desktop image; keep its local full-
+     // surface rectangles consistent with the requested source dimensions.
+     uint desktopIndex=p.Target.ModeIndex&0xffff;
+     if(desktopIndex!=0xffff){
+      if(desktopIndex>=t.ModeCount)return false;IntPtr desktop=IntPtr.Add(t.Modes,checked((int)desktopIndex*64));
+      if(Marshal.ReadInt32(desktop)!=3||!ResizeDesktopImage(desktop,oldWidth,oldHeight,width,height))return false;
+     }
+     Marshal.WriteInt32(source,16,checked((int)width));Marshal.WriteInt32(source,20,checked((int)height));
+     uint rotatedWidth=p.Target.Rotation==2||p.Target.Rotation==4?height:width,rotatedHeight=p.Target.Rotation==2||p.Target.Rotation==4?width:height;
+     if(signal.Active.Width!=rotatedWidth||signal.Active.Height!=rotatedHeight)p.Target.Scaling=3;
+     t.Paths[t.Index]=p;
+    }
+    return PrepareDynamic(t,true);
+ }
+ public static bool InspectDynamicMode(string monitorId,uint width,uint height,uint rate){bool enabled;return InspectDynamic(monitorId,width,height,rate,out enabled);}
+ static bool TryReadDynamicState(string monitorId,out bool enabled){enabled=false;using(Topology t=GetTopology(monitorId)){if(t==null)return false;enabled=(t.Paths[t.Index].Flags&16)!=0;return true;}}
+ static bool MatchesRate(Rational actual,uint rate){return actual.Denominator!=0&&Math.Abs((double)actual.Numerator/actual.Denominator-rate)<0.6;}
+ static bool ResizeDesktopImage(IntPtr desktop,uint oldWidth,uint oldHeight,uint width,uint height){
+  if(unchecked((uint)Marshal.ReadInt32(desktop,16))!=oldWidth||unchecked((uint)Marshal.ReadInt32(desktop,20))!=oldHeight)return false;
+  for(int rectangle=24;rectangle<=40;rectangle+=16){
+   if(Marshal.ReadInt32(desktop,rectangle)!=0||Marshal.ReadInt32(desktop,rectangle+4)!=0||unchecked((uint)Marshal.ReadInt32(desktop,rectangle+8))!=oldWidth||unchecked((uint)Marshal.ReadInt32(desktop,rectangle+12))!=oldHeight)return false;
+  }
+  Marshal.WriteInt32(desktop,16,checked((int)width));Marshal.WriteInt32(desktop,20,checked((int)height));
+  for(int rectangle=24;rectangle<=40;rectangle+=16){Marshal.WriteInt32(desktop,rectangle+8,checked((int)width));Marshal.WriteInt32(desktop,rectangle+12,checked((int)height));}
+  return true;
+ }
+ public static DisplayChangeResult ApplyDynamic(string monitorId,bool enabled){try{using(Topology t=GetTopology(monitorId)){if(t==null)return Skip("Выбранный дисплей недоступен.");if(((t.Paths[t.Index].Flags&16)!=0)==enabled)return new DisplayChangeResult("ok","Динамическая частота уже выбрана.");if(!PrepareDynamic(t,enabled))return Skip("Динамическая частота не поддерживается текущим режимом дисплея.");if(SetDisplayConfig(t.Count,t.Paths,t.ModeCount,t.Modes,0x282A0)!=0)return Skip("Windows не применила динамическую частоту.");bool actual;return TryReadDynamicState(monitorId,out actual)&&actual==enabled?new DisplayChangeResult("ok","Динамическая частота обновления изменена."):Skip("Изменение динамической частоты не подтверждено.");}}catch{return Skip("Управление динамической частотой недоступно.");}}
  [StructLayout(LayoutKind.Sequential,CharSet=CharSet.Unicode)] struct OsVersion {
   public uint Size,Major,Minor,Build,Platform;
   [MarshalAs(UnmanagedType.ByValTStr,SizeConst=128)]public string ServicePack;
@@ -137,6 +199,11 @@ public static class HdrControl {
   supported=false;enabled=false;
   try{Target target;Snapshot state;if(!FindTarget(monitorId,out target)||!Read(target,out state))return false;supported=state.Supported;enabled=state.Enabled;return true;}
   catch{return false;}
+ }
+ // Presets must not offer activation when Windows reports a policy restriction.
+ // An already-active HDR target still supports an idempotent ON action.
+ public static bool CanChange(string monitorId,bool enabled){
+  try{Target target;Snapshot state;return FindTarget(monitorId,out target)&&Read(target,out state)&&state.Supported&&(!enabled||state.Enabled||!state.Limited);}catch{return false;}
  }
  // Private CCD CABC packets used by this Windows installation's display Settings.
  // GET=-36, SET=-35; HEADER20 + DWORD24. Option 0=off, 1=always, 2=battery only.

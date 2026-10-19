@@ -15,13 +15,13 @@ try{
     Assert (-not $save.IsEnabled) 'Save stays enabled after successful export'
     Assert ($win.FindName('Status').Text -eq '') 'Successful save displays a status message'
     $ui.ApplyPreset($false);Assert (-not $save.IsEnabled) 'Identical preset falsely marks saved script changed'
-    $win.FindName('DarkThemeSwitch').IsChecked=$true;Assert ($save.IsEnabled) 'Action change did not enable Save'
-    $win.FindName('DarkThemeSwitch').IsChecked=$null;Assert (-not $save.IsEnabled) 'Returning to saved settings stays dirty'
+    $savedTheme=$win.FindName('DarkThemeSwitch').IsChecked
+    $win.FindName('DarkThemeSwitch').IsChecked=$false;Assert ($save.IsEnabled) 'Action change did not enable Save'
+    $win.FindName('DarkThemeSwitch').IsChecked=$savedTheme;Assert (-not $save.IsEnabled) 'Returning to saved settings stays dirty'
     $win.FindName('IconGrid').Children[1].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
     Assert ($save.IsEnabled) 'Icon change did not enable Save'
     [void]$method.Invoke($ui,@([string](Join-Path $folder 'OtherIcon.exe')));Assert (-not $save.IsEnabled) 'Icon export did not lock Save'
-    $win.FindName('BrightnessToggleButton').IsChecked=$true
-    $win.FindName('BrightnessSlider').Value=37
+    $win.FindName('DarkThemeSwitch').IsChecked=$false
     $rejected=$false;try{[void]$method.Invoke($ui,@([string](Join-Path $folder 'Missing\No.exe')))}catch{$rejected=$true}
     Assert ($rejected -and $save.IsEnabled) 'Failed save changed clean/dirty state'
     $ui.ApplyPreset($true);Assert ($save.IsEnabled) 'Different preset did not enable Save'

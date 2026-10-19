@@ -218,6 +218,15 @@ public static class WindowsControl
         return value;
     }
 
+    // A preset may offer this internal Windows mechanism only when its exact
+    // existing payload can be read. This does not subscribe, publish or create
+    // WNF state and deliberately avoids the broader diagnostic ReadState().
+    public static bool SupportsEnergySaver()
+    {
+        try { return ReadSaverOverride() <= 2; }
+        catch { return false; }
+    }
+
     private static uint ReadSaverOverride()
     {
         ulong name = SaverOverrideName;

@@ -2,10 +2,12 @@
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 [void][Reflection.Assembly]::LoadFrom([IO.Path]::GetFullPath($Builder))
-Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
+Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase,System.Web.Extensions
 $app=New-Object Windows.Application;$ui=New-Object ConstructorWindow;$win=$ui.Window
 $script:checks=0
 function Assert($condition,$message){$script:checks++;if(-not $condition){throw $message}}
+$readPresetCapabilities=[ConstructorWindow].GetMethod('ReadPresetCapabilities',[Reflection.BindingFlags]'Instance,NonPublic')
+$serializer=New-Object System.Web.Script.Serialization.JavaScriptSerializer
 function Current-DisplayAction {
  $selected=$win.FindName('DisplaySelector').SelectedItem
  $entry=@($ui.Configuration.Displays|Where-Object {$_.DisplayId -eq $selected.MonitorId})
@@ -52,19 +54,30 @@ try{
   $scale.SelectedIndex=0
   $supported=$false;$enabled=$false;$known=[HdrControl]::TryInspect($d.MonitorId,[ref]$supported,[ref]$enabled)
   Assert ($win.FindName('HdrSwitch').IsEnabled -eq ($known -and $supported)) 'HDR capability mismatch'
-  $drr=[HdrControl]::InspectDynamic($d.MonitorId,[ref]$enabled);Assert ($win.FindName('DynamicRefreshSwitch').IsEnabled -eq $drr) 'DRR capability mismatch'
+  $drr=[HdrControl]::InspectDynamic($d.MonitorId,[ref]$enabled)
+  if(-not $drr){
+   $recommended=@($d.Resolutions|Where-Object {$_.Width -eq $d.RecommendedWidth -and $_.Height -eq $d.RecommendedHeight})|Select-Object -First 1
+   [uint32]$width=0;[uint32]$height=0;[uint32]$refresh=0
+   if($recommended){$width=$recommended.Width;$height=$recommended.Height;$refresh=($recommended.Rates|Measure-Object -Maximum).Maximum}else{if($d.Rates.Count){$refresh=($d.Rates|Measure-Object -Maximum).Maximum}}
+   $drr=[HdrControl]::InspectDynamic($d.MonitorId,$width,$height,$refresh,[ref]$enabled)
+  }
+  Assert ($win.FindName('DynamicRefreshSwitch').IsEnabled -eq $drr) 'DRR capability mismatch'
   Assert ($win.FindName('BrightnessToggleButton').IsEnabled -eq [DisplayBrightnessControl]::Available($d.MonitorId)) 'Brightness capability mismatch'
   if($cabc.IsEnabled){foreach($choice in $cabc.Items){$cabc.SelectedItem=$choice;Assert ((Current-DisplayAction).ContentBrightness -eq $choice.Value) 'CABC selection mismatch'}}
   $cabc.SelectedIndex=0
  }
  foreach($preset in @($true,$false)){
   foreach($name in $names){$win.FindName($name).IsChecked=$true};$slider.Value=31;if($resolution.Items.Count -gt 1){$resolution.SelectedIndex=1};if($scale.Items.Count -gt 1){$scale.SelectedIndex=1};$ui.ApplyPreset($preset)
-  $c=$ui.Configuration
-  foreach($field in @('BatteryCare','WallpaperAudio','WallpaperPlayback','WallpaperApplication','TaskbarRepair','DisplayWidth','DisplayHeight','DisplayScale','DynamicRefresh','NightLight','ContentBrightness','PresenceWake','PresenceOnlooker','BatteryPercentage','ClockSeconds')){Assert ($c.$field -eq 0) ('Preset retained '+$field)}
-  $expectedTargets=@($display.Items|Where-Object {$preset -and [DisplayBrightnessControl]::Available($_.MonitorId)})
-  Assert ($c.Displays.Count -eq $expectedTargets.Count) 'Preset retained display changes or omitted capable-panel brightness'
-  foreach($action in $c.Displays){Assert ($action.Brightness -eq 100 -and $action.DisplayWidth -eq 0 -and $action.DisplayHeight -eq 0 -and $action.RefreshRate -eq 0 -and $action.DisplayScale -eq 0 -and $action.Hdr -eq 0 -and $action.DynamicRefresh -eq 0 -and $action.ContentBrightness -eq 0) 'Preset retained a non-brightness display action'}
-  Assert ($c.EnergySaver -eq $(if($preset){2}else{1}) -and $c.FanProfile -eq $(if($preset){2}else{1})) 'Preset core changed'
+  $c=$ui.Configuration;$capabilities=$readPresetCapabilities.Invoke($ui,[object[]]@($preset));$expected=[PresetBuilder]::Build($preset,$capabilities)
+  Assert ($serializer.Serialize($c) -eq $serializer.Serialize($expected)) 'UI preset differs from the capability-filtered preset configuration'
+  foreach($field in @('BatteryCare','DisplayWidth','DisplayHeight','DisplayScale','DynamicRefresh','Hdr','NightLight','ContentBrightness','PresenceSleep','PresenceDim','PresenceWake','PresenceOnlooker','AdaptiveBrightness','ScreenSaver','UsbPower','BatteryPercentage','ClockSeconds')){Assert ($c.$field -eq 0) ('Preset retained an unrelated or legacy action: '+$field)}
+  Assert ($c.Brightness -eq -1) 'Preset unexpectedly changes global brightness'
+  foreach($action in $c.Displays){Assert ($action.Brightness -eq -1 -and $action.ContentBrightness -eq 0) 'Preset unexpectedly changes per-display brightness or content adaptation';Assert (@($display.Items|Where-Object MonitorId -eq $action.DisplayId).Count -eq 1) 'Preset includes an absent display'}
+  Assert ($c.EnergySaver -eq $(if($capabilities.EnergySaver){if($preset){2}else{1}}else{0}) -and $c.PowerMode -eq $(if($capabilities.PowerMode){if($preset){3}else{1}}else{0})) 'Preset power actions ignore availability or mode'
+  Assert ($c.DarkTheme -eq $(if($capabilities.DarkTheme){1}else{0}) -and $c.TaskbarRepair -eq $(if($capabilities.TaskbarRepair){2}else{0})) 'Preset theme/taskbar actions ignore availability'
+  Assert ($c.FanProfile -eq $(if($capabilities.FanProfile){if($preset){2}else{1}}else{0})) 'Preset fan action ignores availability or mode'
+  Assert ($c.WallpaperPlayback -eq $(if($capabilities.WallpaperPlayback){if($preset){1}else{2}}else{0}) -and $c.WallpaperAudio -eq $(if($capabilities.WallpaperAudio){if($preset){1}else{2}}else{0})) 'Preset wallpaper playback/audio are incorrect'
+  Assert ($c.WallpaperApplication -eq $(if($preset -and $capabilities.WallpaperApplication){1}else{0})) 'Preset wallpaper launch is incorrect'
  }
  foreach($tile in $win.FindName('IconGrid').Children){if([int]$tile.Tag -lt 5){Assert (-not [string]::IsNullOrEmpty($tile.ToolTip)) 'Preset icon tooltip missing'}}
  foreach($name in @('WallpaperPlaybackSwitch','WallpaperAudioSwitch')){foreach($v in @($true,$false)){$t=$win.FindName($name);$t.IsChecked=$v;$t.ApplyTemplate()|Out-Null;Assert ($t.Template.FindName('SwitchState',$t).Text -notin @('Вкл.','Выкл.')) 'Generic Wallpaper caption remains'}}

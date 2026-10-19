@@ -23,6 +23,16 @@ function Descendants($parent){
     while($pending.Count){$n=$pending.Dequeue();$n;if($n -is [Windows.Controls.Control]){[void]$n.ApplyTemplate()};if($n -is [Windows.Media.Visual]){for($i=0;$i -lt [Windows.Media.VisualTreeHelper]::GetChildrenCount($n);$i++){$pending.Enqueue([Windows.Media.VisualTreeHelper]::GetChild($n,$i))}}}
 }
 function Copy-Configuration {return [System.Web.Script.Serialization.JavaScriptSerializer]::new().Serialize($ui.Configuration)}
+$readPresetCapabilities=[ConstructorWindow].GetMethod('ReadPresetCapabilities',[Reflection.BindingFlags]'Instance,NonPublic')
+function Assert-PresetIntegration([bool]$performance){
+    $ui.ApplyPreset($performance)
+    $capabilities=$readPresetCapabilities.Invoke($ui,[object[]]@($performance))
+    $expected=[PresetBuilder]::Build($performance,$capabilities)
+    Assert ((Copy-Configuration) -eq [System.Web.Script.Serialization.JavaScriptSerializer]::new().Serialize($expected)) 'Preset UI lost or changed a capability-filtered action'
+    Assert ($ui.Configuration.Brightness -eq -1 -and @($ui.Configuration.Displays|Where-Object {$_.Brightness -ge 0 -or $_.ContentBrightness -ne 0}).Count -eq 0) 'Preset retained an unrelated brightness action'
+    Assert ($ui.Configuration.NightLight -eq 0 -and $ui.Configuration.BatteryCare -eq 0 -and $ui.Configuration.ClockSeconds -eq 0) 'Preset retained an unrelated global action'
+    Assert ($ui.Configuration.DarkTheme -eq $(if($capabilities.DarkTheme){1}else{0}) -and $ui.Configuration.TaskbarRepair -eq $(if($capabilities.TaskbarRepair){2}else{0})) 'Preset missed the requested theme/taskbar choice'
+}
 try {
     $preview=Control 'ScriptPreview';$reset=Control 'ResetScriptButton';$display=Control 'DisplaySelector'
     $resolution=Control 'ResolutionSelector';$rate=Control 'RefreshSelector';$scale=Control 'ScaleSelector'
@@ -79,6 +89,12 @@ try {
         [uint32]$rw=0;[uint32]$rh=0;$known=[HdrControl]::TryInspectPreferredResolution($d.MonitorId,[ref]$rw,[ref]$rh)
         foreach($r in $resolution.Items){Assert ($r.ToString().Contains('(рекомендуется)') -eq ($known -and $r.Width -eq $rw -and $r.Height -eq $rh)) 'Resolution recommendation does not match the native preferred mode'}
         $enabled=$false;$available=[HdrControl]::InspectDynamic($d.MonitorId,[ref]$enabled)
+        if(-not $available){
+            $recommended=@($d.Resolutions|Where-Object {$_.Width -eq $d.RecommendedWidth -and $_.Height -eq $d.RecommendedHeight})|Select-Object -First 1
+            [uint32]$width=0;[uint32]$height=0;[uint32]$refresh=0
+            if($recommended){$width=$recommended.Width;$height=$recommended.Height;$refresh=($recommended.Rates|Measure-Object -Maximum).Maximum}else{if($d.Rates.Count){$refresh=($d.Rates|Measure-Object -Maximum).Maximum}}
+            $available=[HdrControl]::InspectDynamic($d.MonitorId,$width,$height,$refresh,[ref]$enabled)
+        }
         Assert ($dynamic.IsEnabled -eq $available) 'DRR is gated differently from native per-display capability'
         $supported=$false;$enabled=$false;$known=[HdrControl]::TryInspect($d.MonitorId,[ref]$supported,[ref]$enabled)
         Assert ($hdr.IsEnabled -eq ($known -and $supported)) 'HDR is gated differently from native per-display capability'
@@ -183,11 +199,10 @@ try {
     Assert (-not $ui.Configuration.HasActions -and @(Display-Actions).Count -eq 0 -and -not (Control 'SaveButton').IsEnabled) 'Reset retained an action or enabled Save'
     Assert ($ui.IconChoice.BuiltInIndex -eq $chosen) 'Reset changed the icon choice'
     Assert ($preview.Text -eq 'Действия не выбраны.') 'Reset did not clear preview text'
-    $ui.ApplyPreset($true)
-    Assert ($ui.Configuration.EnergySaver -eq 2 -and $ui.Configuration.PowerMode -eq 3 -and $ui.Configuration.FanProfile -eq 2) 'Performance preset core actions changed'
+    Assert-PresetIntegration $true
     Assert ($ui.IconChoice.BuiltInIndex -eq $chosen) 'Preset changed the icon choice'
-    $ui.ApplyPreset($false)
-    Assert ($ui.Configuration.EnergySaver -eq 1 -and $ui.Configuration.FanProfile -eq 1 -and $ui.Configuration.PowerMode -eq 0 -and @(Display-Actions).Count -eq 0) 'Autonomy preset retained previous display actions'
+    Assert-PresetIntegration $false
+    Assert ($ui.IconChoice.BuiltInIndex -eq $chosen) 'Autonomy preset changed the icon choice'
     $reset.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
     Assert (-not $ui.Configuration.HasActions) 'Reset button is not connected to the reset operation'
     # Even without two physical screens, resource export must retain independent monitor identities.

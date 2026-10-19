@@ -8,6 +8,7 @@ $window=$ui.Window
 $script:checks=0
 function Assert($condition,$message){$script:checks++;if(-not $condition){throw $message}}
 $apply=$ui.GetType().GetMethod('ApplyProgramAvailability',[Reflection.BindingFlags]'Instance,NonPublic')
+$readPresetCapabilities=$ui.GetType().GetMethod('ReadPresetCapabilities',[Reflection.BindingFlags]'Instance,NonPublic')
 function SetPrograms([bool]$screen,[bool]$wallpaper,[bool]$armoury){[void]$apply.Invoke($ui,[object[]]@($screen,$wallpaper,$armoury))}
 try{
     $timer=[Diagnostics.Stopwatch]::StartNew();$actual=[ProgramAvailability]::Read();$timer.Stop()
@@ -50,10 +51,14 @@ try{
         $window.FindName($name).IsChecked=$null
     }
     foreach($performance in @($false,$true)){
-        $ui.ApplyPreset($performance)
-        Assert ($ui.Configuration.FanProfile -eq 0) 'Preset selected an action for absent ScreenXpert'
+        # Build from the injected absence snapshot. ApplyPreset deliberately refreshes
+        # real installations, which would replace this simulated missing-app state.
+        $capabilities=$readPresetCapabilities.Invoke($ui,[object[]]@($performance))
+        $preset=[PresetBuilder]::Build($performance,$capabilities)
+        Assert ($preset.FanProfile -eq 0) 'Preset selected an action for absent ScreenXpert'
         foreach($name in @('FanWhisper','FanPerformance','FanStandard')){Assert ($window.FindName($name).IsChecked -eq $false) 'Preset left checked disabled fan choice'}
-        Assert ($ui.Configuration.WallpaperPlayback -eq 0 -and $ui.Configuration.WallpaperAudio -eq 0 -and $ui.Configuration.WallpaperApplication -eq 0) 'Preset selected missing Wallpaper Engine action'
+        Assert ($preset.WallpaperPlayback -eq 0 -and $preset.WallpaperAudio -eq 0 -and $preset.WallpaperApplication -eq 0) 'Preset selected missing Wallpaper Engine action'
+        Assert ($preset.DarkTheme -eq $(if($capabilities.DarkTheme){1}else{0})) 'Missing apps changed independent Windows-action availability in the preset'
     }
     foreach($values in @(@($true,$false,$false),@($false,$true,$false),@($false,$false,$true))){
         SetPrograms $values[0] $values[1] $values[2]

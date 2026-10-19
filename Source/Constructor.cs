@@ -207,18 +207,55 @@ public sealed class ConstructorWindow
     }
     public void ApplyPreset(bool performance)
     {
+        RefreshProgramAvailability();RefreshDisplays();RefreshHardware();
+        ModeConfiguration preset=PresetBuilder.Build(performance,ReadPresetCapabilities(performance));
         bool previousUpdating=updating,previousDisplays=updatingDisplays;
         updating=true;updatingDisplays=true;
         try{
             foreach(CheckBox check in switches)check.IsChecked=check.Name=="TaskbarRepairSwitch"?(bool?)false:null;
-            for(int i=0;i<powerChecks.Length;i++)powerChecks[i].IsChecked=performance&&i==2;
-            for(int i=0;i<fanChecks.Length;i++)fanChecks[i].IsChecked=fanChecks[i].IsEnabled&&i==(performance?1:0);
-            Action("EnergySaverSwitch").IsChecked=!performance;
+            for(int i=0;i<powerChecks.Length;i++)powerChecks[i].IsChecked=preset.PowerMode==i+1;
+            for(int i=0;i<fanChecks.Length;i++)fanChecks[i].IsChecked=preset.FanProfile==i+1;
+            SetPresetSwitch("EnergySaverSwitch",preset.EnergySaver);
+            SetPresetSwitch("DarkThemeSwitch",preset.DarkTheme);
+            SetPresetSwitch("WallpaperPlaybackSwitch",preset.WallpaperPlayback);
+            SetPresetSwitch("WallpaperAudioSwitch",preset.WallpaperAudio);
+            SetPresetSwitch("WallpaperApplicationSwitch",preset.WallpaperApplication);
+            Action("TaskbarRepairSwitch").IsChecked=preset.TaskbarRepair==0?(bool?)false:preset.TaskbarRepair==2?(bool?)true:null;
             displaySettings.Clear();nightLightSlider.Value=50;
-            if(performance)foreach(DisplayInfo display in displaySelector.Items)if(DisplayBrightnessControl.Available(display.MonitorId))displaySettings[display.MonitorId]=new DisplayModeConfiguration{DisplayId=display.MonitorId,Brightness=100};
+            foreach(DisplayModeConfiguration display in preset.Displays)displaySettings[display.DisplayId]=CloneDisplay(display);
             LoadDisplayEditor();
         }finally{updating=previousUpdating;updatingDisplays=previousDisplays;}
         SelectionChanged(null,null);
+    }
+    void SetPresetSwitch(string name,int value){Action(name).IsChecked=value==0?(bool?)null:value==1;}
+    PresetCapabilities ReadPresetCapabilities(bool performance)
+    {
+        PresetSystemSnapshot system=PresetSystemSupport.Read(displaySelector.Items.Count>1);
+        PresetCapabilities capabilities=new PresetCapabilities{
+            EnergySaver=system.EnergySaver&&Action("EnergySaverSwitch").IsEnabled,
+            PowerMode=system.PowerMode&&powerChecks[performance?2:0].IsEnabled,
+            DarkTheme=system.DarkTheme&&Action("DarkThemeSwitch").IsEnabled,
+            TaskbarRepair=system.TaskbarRepair&&Action("TaskbarRepairSwitch").IsEnabled,
+            FanProfile=system.FanProfile&&fanChecks[performance?1:0].IsEnabled,
+            WallpaperPlayback=Action("WallpaperPlaybackSwitch").IsEnabled,
+            WallpaperAudio=Action("WallpaperAudioSwitch").IsEnabled,
+            WallpaperApplication=Action("WallpaperApplicationSwitch").IsEnabled
+        };
+        foreach(DisplayInfo display in displaySelector.Items){
+            bool enabled;
+            PresetDisplayCapabilities target=new PresetDisplayCapabilities{Display=display,Scales=HdrControl.InspectScales(display.MonitorId),HdrSupported=HdrControl.CanChange(display.MonitorId,performance)};
+            DisplayModeConfiguration mode=PresetBuilder.BuildDisplay(performance,target);
+            target.DynamicRefreshSupported=performance?HdrControl.InspectDynamic(display.MonitorId,mode.DisplayWidth,mode.DisplayHeight,mode.RefreshRate,out enabled):HasDynamicRefreshCapability(display);
+            capabilities.Displays.Add(target);
+        }
+        return capabilities;
+    }
+    static bool HasDynamicRefreshCapability(DisplayInfo display)
+    {
+        if(display==null)return false;bool enabled;
+        if(HdrControl.InspectDynamic(display.MonitorId,out enabled))return true;
+        DisplayModeConfiguration recommended=PresetBuilder.BuildDisplay(true,new PresetDisplayCapabilities{Display=display});
+        return HdrControl.InspectDynamic(display.MonitorId,recommended.DisplayWidth,recommended.DisplayHeight,recommended.RefreshRate,out enabled);
     }
     public void ResetScript(){
         bool previous=updating,previousDisplays=updatingDisplays;updating=true;updatingDisplays=true;
@@ -330,7 +367,7 @@ public sealed class ConstructorWindow
         displaySelector.IsEnabled=displaySelector.Items.Count>0;resolutionSelector.IsEnabled=displaySelector.Items.Count>0&&resolutionSelector.Items.Count>1;refreshSelector.IsEnabled=displaySelector.Items.Count>0&&refreshSelector.Items.Count>1;
         DisplayInfo display=displaySelector.SelectedItem as DisplayInfo;bool supported=false,enabled=false;int option;
         bool hdr=display!=null&&HdrControl.TryInspect(display.MonitorId,out supported,out enabled)&&supported;
-        bool dynamic=display!=null&&HdrControl.InspectDynamic(display.MonitorId,out enabled);
+        bool dynamic=HasDynamicRefreshCapability(display);
         bool content=display!=null&&HdrControl.TryInspectContentBrightness(display.MonitorId,out option);
         bool previous=updating;updating=true;try{Action("HdrSwitch").IsEnabled=hdr;if(!hdr)Action("HdrSwitch").IsChecked=null;Action("DynamicRefreshSwitch").IsEnabled=dynamic;if(!dynamic)Action("DynamicRefreshSwitch").IsChecked=null;contentBrightnessSelector.IsEnabled=content;if(!content)contentBrightnessSelector.SelectedIndex=0;scaleSelector.IsEnabled=scaleSelector.Items.Count>1;brightnessToggle.IsEnabled=display!=null&&DisplayBrightnessControl.Available(display.MonitorId);if(!brightnessToggle.IsEnabled)brightnessToggle.IsChecked=false;}finally{updating=previous;}
     }
