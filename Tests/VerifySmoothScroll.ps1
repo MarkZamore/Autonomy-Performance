@@ -39,7 +39,9 @@ try{
     [void]$controller.ScrollByWheelDelta(-120);Frames 1;$controller.Cancel();$stopped=$viewer.VerticalOffset;Frames 30
     Assert (-not $controller.IsAnimating -and $viewer.VerticalOffset -eq $stopped) 'Cancel left motion running'
     $viewer.ScrollToTop();$viewer.UpdateLayout();$controller.Cancel()
-    [void]$controller.ScrollByWheelDelta(120);Frames 1;$topBounce=$controller.BounceOffset
+    [void]$controller.ScrollByWheelDelta(120)
+    if([Windows.SystemParameters]::ClientAreaAnimation){Assert ($controller.BounceOffset -gt 0) 'Top spring response waits for a later render tick'}
+    Frames 1;$topBounce=$controller.BounceOffset
     if([Windows.SystemParameters]::ClientAreaAnimation){Assert ($topBounce -gt 0 -and $topBounce -le 18) 'Top edge did not spring inward'}
     Assert ($viewer.VerticalOffset -eq 0) 'Spring moved actual scroll offset outside top bound'
     Frames 90;Assert ([math]::Abs($controller.BounceOffset) -lt 0.01 -and -not $controller.IsAnimating) 'Top spring did not settle'

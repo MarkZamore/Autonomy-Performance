@@ -34,7 +34,22 @@ try{
     $section.IsExpanded=$true;$grid.UpdateLayout();[void]$animate.Invoke($ui,@($section,$true))
     $frame=New-Object Windows.Threading.DispatcherFrame;$timer=New-Object Windows.Threading.DispatcherTimer;$timer.Interval=[TimeSpan]::FromMilliseconds(350);$timer.add_Tick($handler);$timer.Start();[Windows.Threading.Dispatcher]::PushFrame($frame);$timer.remove_Tick($handler)
     Assert ([double]::IsNaN($content.Height) -and $content.Opacity -eq 1) 'Reveal did not restore automatic content height'
+    $expandedHeight=$content.ActualHeight
+    $section.IsExpanded=$false;[void]$animate.Invoke($ui,@($section,$true));$grid.UpdateLayout()
+    Assert ($content.Visibility -eq 'Visible' -and $content.HasAnimatedProperties) 'Collapse hides content immediately'
+    $frame=New-Object Windows.Threading.DispatcherFrame;$timer=New-Object Windows.Threading.DispatcherTimer;$timer.Interval=[TimeSpan]::FromMilliseconds(70);$timer.add_Tick($handler);$timer.Start();[Windows.Threading.Dispatcher]::PushFrame($frame);$timer.remove_Tick($handler)
+    Assert ($content.Height -gt 0 -and $content.Height -lt $expandedHeight -and $content.Opacity -gt 0 -and $content.Opacity -lt 1) 'Collapse skips intermediate height or opacity'
+    $section.IsExpanded=$true;[void]$animate.Invoke($ui,@($section,$true))
+    $frame=New-Object Windows.Threading.DispatcherFrame;$timer=New-Object Windows.Threading.DispatcherTimer;$timer.Interval=[TimeSpan]::FromMilliseconds(350);$timer.add_Tick($handler);$timer.Start();[Windows.Threading.Dispatcher]::PushFrame($frame);$timer.remove_Tick($handler)
+    Assert ($content.Visibility -eq 'Visible' -and [double]::IsNaN($content.Height)) 'Reopening during collapse leaves content hidden or fixed-height'
     $background=$win.Background
+    $check=$win.FindName('EnergySaverSwitch');$check.IsChecked=$true;$grid.UpdateLayout();$check.ApplyTemplate()|Out-Null
+    $track=$check.Template.FindName('SwitchTrack',$check);$thumb=$check.Template.FindName('SwitchThumb',$check)
+    Assert ($track -ne $null -and $thumb -ne $null) 'Three-state switch template is missing track or thumb'
+    $on=$thumb.TranslatePoint([Windows.Point]::new($thumb.ActualWidth/2,0),$track).X
+    $check.IsChecked=$false;$grid.UpdateLayout();$off=$thumb.TranslatePoint([Windows.Point]::new($thumb.ActualWidth/2,0),$track).X
+    $check.IsChecked=$null;$grid.UpdateLayout();$neutral=$thumb.TranslatePoint([Windows.Point]::new($thumb.ActualWidth/2,0),$track).X
+    Assert ($off -lt $neutral -and $neutral -lt $on -and [Math]::Abs($neutral-$track.ActualWidth/2) -le 1) 'Switch thumb does not represent off/unchanged/on positions'
     Assert ($background -is [Windows.Media.LinearGradientBrush] -and $background.GradientStops[0].Color.ToString() -eq '#FF101B30' -and $background.GradientStops[2].Color.ToString() -eq '#FF282828') 'Dark-blue to grey gradient missing'
     @{Passed=$true;HoverFill=$true;PressedDarkening=$true;NoCategoryOutline=$true;Gradient=$true;ChevronDirections=$true;RevealIntermediate=$true;RevealAutoHeightRestored=$true;FastCollapseSafe=$true}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $PSScriptRoot 'Artifacts\category-feedback.json') -Encoding utf8
     'PASS: category fill/press states, no outline, gradient, right/down arrows, intermediate reveal and safe rapid collapse/reopen.'

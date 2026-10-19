@@ -131,29 +131,10 @@ public static class WindowsControl
         return results;
     }
 
-    public static List<StepResult> SetBrightness100()
+    public static List<StepResult> SetBrightness(int percent)
     {
-        return SetBrightness(null);
-    }
-
-    public static List<StepResult> SetVolume100()
-    {
-        List<StepResult> results = new List<StepResult>();
-        try
-        {
-            using (AudioEndpoint endpoint = new AudioEndpoint(null))
-            {
-                bool initialMute = endpoint.ReadMute();
-                endpoint.SetVolume(1.0f);
-                float actual = endpoint.ReadVolume();
-                bool actualMute = endpoint.ReadMute();
-                if (Math.Abs(actual - 1.0f) > 0.001f || initialMute != actualMute)
-                    throw new InvalidOperationException("Volume or preserved mute did not match the requested state");
-                results.Add(new StepResult("Volume", "ok", "100%; mute preserved; endpoint=" + endpoint.Id));
-            }
-        }
-        catch (Exception ex) { results.Add(new StepResult("Volume", "error", ErrorText(ex))); }
-        return results;
+        if(percent<0||percent>100)throw new ArgumentOutOfRangeException("percent");
+        return SetBrightness(null,(byte)percent);
     }
 
     public static List<StepResult> Restore(WindowsState state)
@@ -229,6 +210,7 @@ public static class WindowsControl
         string name = ac ? "PowerModeAC" : "PowerModeDC";
         try
         {
+            if(ReadPowerMode(ac)==desired)return new StepResult(name,"ok",desired+" already selected.");
             uint result = ac ? PowerSetUserConfiguredACPowerMode(ref desired) : PowerSetUserConfiguredDCPowerMode(ref desired);
             CheckWin32(result);
             Guid actual = ReadPowerMode(ac);
@@ -286,7 +268,7 @@ public static class WindowsControl
         return results;
     }
 
-    private static List<StepResult> SetBrightness(List<DisplayBrightnessState> saved)
+    private static List<StepResult> SetBrightness(List<DisplayBrightnessState> saved, byte percent = 100)
     {
         List<StepResult> results = new List<StepResult>();
         Dictionary<string, byte> targets = null;
@@ -310,7 +292,7 @@ public static class WindowsControl
                         try
                         {
                             instance = Convert.ToString(monitor["InstanceName"]);
-                            byte desired = 100;
+                            byte desired = percent;
                             if (targets != null && !targets.TryGetValue(instance, out desired)) continue;
                             found.Add(instance);
                             using (ManagementBaseObject parameters = monitor.GetMethodParameters("WmiSetBrightness"))

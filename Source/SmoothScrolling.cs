@@ -50,7 +50,11 @@ public sealed class SmoothScrollingController : IDisposable
         if (raw != target) {
             double impulse = -(raw - target) * 8;
             bool atEdge = target == 0 ? viewer.VerticalOffset < 0.5 : viewer.VerticalOffset > viewer.ScrollableHeight - 0.5;
-            if (atEdge) bounceVelocity = Math.Max(-480, Math.Min(480, bounceVelocity + impulse));
+            if (atEdge) {
+                EnsureBounceContent();
+                bounceTransform.Y = Math.Max(-18, Math.Min(18, bounceTransform.Y + Math.Sign(impulse) * 1.5));
+                bounceVelocity = Math.Max(-480, Math.Min(480, bounceVelocity + impulse));
+            }
             else pendingBounce = Math.Max(-480, Math.Min(480, pendingBounce + impulse));
         } else if (target > 0 && target < viewer.ScrollableHeight) pendingBounce = 0;
         TargetOffset = target;
@@ -79,7 +83,7 @@ public sealed class SmoothScrollingController : IDisposable
         position += (TargetOffset - position) * (1 - Math.Exp(-elapsed / TimeConstantMilliseconds));
         bool scrollSettled = Math.Abs(TargetOffset - position) < 0.25;
         if (scrollSettled) position = TargetOffset;
-        if (scrollSettled && pendingBounce != 0) { bounceVelocity = Math.Max(-480, Math.Min(480, bounceVelocity + pendingBounce)); pendingBounce = 0; }
+        if (Math.Abs(TargetOffset-position)<=4 && pendingBounce != 0) { bounceVelocity = Math.Max(-480, Math.Min(480, bounceVelocity + pendingBounce)); pendingBounce = 0; }
         // Exact damped spring step: k=300, damping=24. This is stable even if a
         // render frame is delayed, and gives a small elastic return at either edge.
         EnsureBounceContent();

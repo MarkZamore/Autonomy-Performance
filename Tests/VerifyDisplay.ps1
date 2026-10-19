@@ -9,10 +9,11 @@ $enable=$win.FindName('DisplayEnabled');$selector=$win.FindName('DisplaySelector
 Assert (-not $enable.IsChecked -and $ui.Configuration.RefreshRate -eq 0) 'Display action initially enabled'
 Assert ($selector.Items.Count -gt 0) 'No monitors enumerated on test system'
 $section.IsExpanded=$true;$enable.IsChecked=$true
+if($rates.Items.Count -gt 1){$rates.SelectedIndex=1}
 Assert ($selector.IsEnabled -and $rates.IsEnabled -and $win.FindName('SaveButton').IsEnabled) 'Display controls unavailable'
 $selected=$selector.SelectedItem;$rate=$rates.SelectedItem.Rate
 Assert ($preview.Text.Contains($selected.Label) -and $preview.Text.Contains($rate.ToString()+' Гц')) 'Display not in preview'
-if($selector.Items.Count -gt 1){$selector.SelectedIndex=1;Assert ($ui.Configuration.DisplayId -eq $selector.SelectedItem.MonitorId) 'Wrong selected display id';Assert ($preview.Text.Contains($selector.SelectedItem.Label)) 'Monitor change not reflected'}
+if($selector.Items.Count -gt 1){$selector.SelectedIndex=1;if($rates.Items.Count -gt 1){$rates.SelectedIndex=1};Assert ($ui.Configuration.DisplayId -eq $selector.SelectedItem.MonitorId) 'Wrong selected display id';Assert ($preview.Text.Contains($selector.SelectedItem.Label)) 'Monitor change not reflected'}
 $rates.SelectedIndex=0;Assert ($ui.Configuration.RefreshRate -eq $rates.SelectedItem.Rate) 'Rate selection not reflected'
 $enable.IsChecked=$false;Assert (-not $ui.Configuration.HasActions -and $preview.Text -eq 'Действия не выбраны.') 'Unchecked display remains in config'
 $selector.SelectedIndex=0;$enable.IsChecked=$true

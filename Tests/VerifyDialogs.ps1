@@ -8,14 +8,14 @@ $app=New-Object Windows.Application;$ui=New-Object ConstructorWindow;$win=$ui.Wi
 function Assert($condition,$message){if(-not $condition){throw $message}}
 function Click($button){$button.RaiseEvent((New-Object Windows.RoutedEventArgs([Windows.Controls.Primitives.ButtonBase]::ClickEvent)))}
 try{
-$expectedTitle='Автономность и производительность';Assert ($win.Title -eq $expectedTitle) 'Window title is not localized'
-$win.Show();$win.UpdateLayout();$win.FindName('Volume').IsChecked=$true
+$expectedTitle='Autonomy&Performance';Assert ($win.Title -eq $expectedTitle) 'Window title is not localized'
+$win.Show();$win.UpdateLayout();$win.FindName('DarkThemeSwitch').IsChecked=$true
 $cancel=New-Object CancelNativeDialog('Сохранить режим');Click $win.FindName('SaveButton')
 Assert ($cancel.Wait()) 'Save dialog cancellation failed'
-Assert ($ui.Configuration.Volume100 -and $ui.IconChoice.BuiltInIndex -eq 0) 'Save cancellation changed selection'
+Assert ($ui.Configuration.DarkTheme -eq 1 -and $ui.IconChoice.BuiltInIndex -eq 0) 'Save cancellation changed selection'
 Click $win.FindName('IconButton');$popup=$win.FindName('IconPopup');Assert ($popup.IsOpen) 'Icon popup failed to open'
 $panel=$win.FindName('IconGrid');Assert ($panel.Children.Count -eq 6) 'Popup does not contain six choices'
-foreach($choice in $panel.Children){Assert ($choice.ToolTip -notmatch 'Autonomy|Performance|Whisper|Mode') 'English icon tooltip remains'}
+foreach($choice in $panel.Children){Assert ($choice.ToolTip -notmatch 'Energy Saver|Whisper|Performance Mode') 'English icon tooltip remains'}
 $size=$panel.RenderSize
 $bitmap=New-Object Windows.Media.Imaging.RenderTargetBitmap([int]$size.Width,[int]$size.Height,96,96,[Windows.Media.PixelFormats]::Pbgra32);$bitmap.Render($panel)
 $encoder=New-Object Windows.Media.Imaging.PngBitmapEncoder;$encoder.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap));$stream=[IO.File]::Create((Join-Path $PSScriptRoot 'Artifacts\ui-icons.png'));try{$encoder.Save($stream)}finally{$stream.Dispose()}
@@ -38,7 +38,7 @@ $exportPath=Join-Path $PSScriptRoot ('Artifacts\dialog-export-'+[Guid]::NewGuid(
 $nativeSave=New-Object SaveNativeDialog($exportPath);Click $win.FindName('SaveButton')
 Assert ($nativeSave.Wait()) ('Native save failed: '+$nativeSave.Error)
 Assert (Test-Path -LiteralPath $exportPath) 'Save button did not generate EXE'
-Assert ([PeConfiguration]::Read($exportPath).Volume100) 'Save button lost configuration'
+Assert ([PeConfiguration]::Read($exportPath).DarkTheme -eq 1) 'Save button lost configuration'
 Assert ($ui.IconChoice.CustomPath -eq $null -and $ui.IconChoice.BuiltInIndex -eq 0) 'Custom ICO not reset after real save'
 'PASS: keyboard popup navigation, real EXE save, custom icon reset, native Save and ICO dialogs open and cancel, popup six choices and built-in selection.'|Set-Content -LiteralPath (Join-Path $PSScriptRoot 'Artifacts\dialog-results.txt') -Encoding UTF8
 Get-Content -LiteralPath (Join-Path $PSScriptRoot 'Artifacts\dialog-results.txt')

@@ -69,14 +69,21 @@ public static class ExportTests {
  [MethodImpl(MethodImplOptions.NoInlining)] static void Run(string output){
   Directory.CreateDirectory(output);string exe=Path.Combine(output,"Roundtrip.exe");byte[] defaultIcon=EmbeddedAssets.Read("Icon0");
   int cases=0;
-  for(int e=0;e<=2;e++)for(int p=0;p<=3;p++)for(int f=0;f<=2;f++)for(int b=0;b<=1;b++)for(int v=0;v<=1;v++){
-   ModeConfiguration c=new ModeConfiguration{EnergySaver=e,PowerMode=p,FanProfile=f,Brightness100=b==1,Volume100=v==1};
+  for(int e=0;e<=2;e++)for(int p=0;p<=3;p++)for(int f=0;f<=2;f++)for(int b=0;b<=1;b++)for(int d=0;d<=2;d++){
+   ModeConfiguration c=new ModeConfiguration{EnergySaver=e,PowerMode=p,FanProfile=f,Brightness=b==1?100:-1,DarkTheme=d};
    if(!c.HasActions)continue;
    ExecutableExporter.Save(exe,c,defaultIcon);ModeConfiguration r=PeConfiguration.Read(exe);
-   Assert(r.Version==1&&r.EnergySaver==e&&r.PowerMode==p&&r.FanProfile==f&&r.Brightness100==(b==1)&&r.Volume100==(v==1),"Configuration roundtrip");cases++;
+   Assert(r.Version==2&&r.EnergySaver==e&&r.PowerMode==p&&r.FanProfile==f&&r.Brightness==(b==1?100:-1)&&r.DarkTheme==d,"Configuration roundtrip");cases++;
   }
-  Assert(cases==143,"All non-empty independent action combinations");
-  ModeConfiguration valid=new ModeConfiguration{Volume100=true};
+  Assert(cases==215,"All non-empty independent action combinations");
+  foreach(int brightness in new[]{-1,0,1,50,99,100}){
+   ModeConfiguration c=new ModeConfiguration{EnergySaver=1,Brightness=brightness};ExecutableExporter.Save(exe,c,defaultIcon);
+   Assert(PeConfiguration.Read(exe).Brightness==brightness,"Brightness percentage and unchanged sentinel roundtrip");
+  }
+  ModeConfiguration extra=new ModeConfiguration{DarkTheme=2,SleepTimeout=2,ScreenTimeout=2,Hdr=2,PresenceSleep=2,PresenceDim=2,ContentBrightness=2,AdaptiveBrightness=2,ScreenSaver=2,UsbPower=2,DisplayId="TEST\\DISPLAY\\EXPORT",RefreshRate=60};
+  ExecutableExporter.Save(exe,extra,defaultIcon);ModeConfiguration additional=PeConfiguration.Read(exe);
+  Assert(additional.DarkTheme==2&&additional.SleepTimeout==2&&additional.ScreenTimeout==2&&additional.Hdr==2&&additional.PresenceSleep==2&&additional.PresenceDim==2&&additional.ContentBrightness==2&&additional.AdaptiveBrightness==2&&additional.ScreenSaver==2&&additional.UsbPower==2&&additional.DisplayId==extra.DisplayId&&additional.RefreshRate==60,"All additional actions and display identity roundtrip without execution");
+  ModeConfiguration valid=new ModeConfiguration{EnergySaver=1};
   for(int i=0;i<5;i++){byte[] ico=EmbeddedAssets.Read("Icon"+i);IconFile.Validate(ico);ExecutableExporter.Save(exe,valid,ico);VerifyPe(exe,ico);}
   byte[] configuration=PortableResources.ReadConfiguration(File.ReadAllBytes(exe));Assert(configuration.Length>0,"Managed configuration resource read");
   foreach(int frames in new int[]{1,24}){
@@ -106,7 +113,7 @@ public static class ExportTests {
   }finally{if(update!=IntPtr.Zero)EndUpdateResource(update,true);}
   Assert(!String.IsNullOrEmpty(FileVersionInfo.GetVersionInfo(legacy).FileVersion),"Fixture has Explorer version");
   ModeConfiguration legacyBefore=PeConfiguration.Read(legacy);Assert(ExecutableExporter.RemoveVersionMetadata(legacy),"Existing script metadata removed");
-  ModeConfiguration legacyAfter=PeConfiguration.Read(legacy);Assert(legacyBefore.Volume100==legacyAfter.Volume100&&legacyAfter.HasActions,"Existing script configuration preserved");VerifyPe(legacy,EmbeddedAssets.Read("Icon4"));
+  ModeConfiguration legacyAfter=PeConfiguration.Read(legacy);Assert(legacyBefore.EnergySaver==legacyAfter.EnergySaver&&legacyAfter.EnergySaver==1&&legacyAfter.HasActions,"Existing script configuration preserved");VerifyPe(legacy,EmbeddedAssets.Read("Icon4"));
   byte[] cleaned=File.ReadAllBytes(legacy);Assert(!ExecutableExporter.RemoveVersionMetadata(legacy)&&cleaned.SequenceEqual(File.ReadAllBytes(legacy)),"Repeated removal preserves every byte");
   Rejected(delegate{ExecutableExporter.RemoveVersionMetadata(builder);},"Constructor metadata modification rejected");
   IconSelection selection=new IconSelection();Assert(selection.GetBytes().SequenceEqual(defaultIcon),"Default program icon");
@@ -116,6 +123,10 @@ public static class ExportTests {
   Rejected(delegate{selection.SelectCustom(custom);},"Invalid ICO rejected");File.WriteAllBytes(custom,EmbeddedAssets.Read("Icon1"));selection.SelectCustom(custom);selection.Saved();Assert(selection.CustomPath==null&&selection.BuiltInIndex==0,"Successful custom save reset");File.Delete(custom);
   Rejected(delegate{ExecutableExporter.Save(exe,new ModeConfiguration(),defaultIcon);},"Empty actions rejected");
   Rejected(delegate{ExecutableExporter.Save(exe,new ModeConfiguration{EnergySaver=3},defaultIcon);},"Invalid config rejected");
+  Rejected(delegate{ExecutableExporter.Save(exe,new ModeConfiguration{Brightness=-2},defaultIcon);},"Brightness below unchanged sentinel rejected");
+  Rejected(delegate{ExecutableExporter.Save(exe,new ModeConfiguration{Brightness=101},defaultIcon);},"Brightness above 100 percent rejected");
+  Rejected(delegate{ExecutableExporter.Save(exe,new ModeConfiguration{Hdr=1},defaultIcon);},"HDR action without target display rejected");
+  Rejected(delegate{ExecutableExporter.Save(exe,new ModeConfiguration{DarkTheme=3},defaultIcon);},"Invalid additional toggle rejected");
   Rejected(delegate{ExecutableExporter.Save(exe,valid,new byte[]{1,2,3});},"Invalid export icon rejected");
   Rejected(delegate{ExecutableExporter.Save(builder,valid,defaultIcon);},"Constructor overwrite rejected");
   string locked=Path.Combine(output,"Locked.exe");File.WriteAllText(locked,"must remain");

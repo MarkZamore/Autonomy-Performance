@@ -40,6 +40,9 @@ public static class DisplayControl {
    current.Frequency=rate;current.Fields=0x400000;
    int test=ChangeDisplaySettingsEx(display.DeviceName,ref current,IntPtr.Zero,2,IntPtr.Zero);
    if(test!=0)return new DisplayChangeResult("skipped","Driver rejected refresh rate; code="+test);
+   List<DisplayInfo> beforeApply=Enumerate().FindAll(delegate(DisplayInfo d){return String.Equals(d.MonitorId,monitorId,StringComparison.OrdinalIgnoreCase);});
+   if(beforeApply.Count!=1||!String.Equals(beforeApply[0].DeviceName,display.DeviceName,StringComparison.OrdinalIgnoreCase)||beforeApply[0].Width!=display.Width||beforeApply[0].Height!=display.Height||!beforeApply[0].Rates.Contains(rate))
+    return new DisplayChangeResult("skipped","Monitor identity or modes changed during preparation.");
    int applied=ChangeDisplaySettingsEx(display.DeviceName,ref current,IntPtr.Zero,1,IntPtr.Zero);
    if(applied!=0)return new DisplayChangeResult("error","Display mode could not be applied; code="+applied);
    Mode observed=NewMode();if(!EnumDisplaySettings(display.DeviceName,-1,ref observed)||observed.Frequency!=rate)return new DisplayChangeResult("error","Refresh rate read-back mismatch.");

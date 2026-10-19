@@ -39,7 +39,7 @@ public static class MinimalExportTests
         if (File.Exists(target)) File.Delete(target);
         Assert(Directory.GetFiles(output, ".ap-*.tmp").Length == 0, "Test folder already contains export temporary files");
         ModeConfiguration original = new ModeConfiguration {
-            EnergySaver=2, FanProfile=1, PowerMode=2, Brightness100=true, Volume100=true,
+            EnergySaver=2, FanProfile=1, PowerMode=2, Brightness=100, DarkTheme=2,
             DisplayId="TEST\\DISPLAY\\MINIMAL-EXPORT", RefreshRate=60
         };
         string watcherError = null;

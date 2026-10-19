@@ -36,7 +36,8 @@ internal static class Runner
                 ModeConfiguration c=PeConfiguration.Read(Assembly.GetExecutingAssembly().Location);
                 Guid? savedAC=null,savedDC=null;
                 bool preservePower=true,fanMayHaveChanged=false;
-                if(c.FanProfile!=0&&c.PowerMode==0&&!skipFan){
+                bool additionalSchemeRefresh=c.SleepTimeout!=0||c.ScreenTimeout!=0||c.AdaptiveBrightness!=0;
+                if(c.PowerMode==0&&((c.FanProfile!=0&&!skipFan)||additionalSchemeRefresh)){
                     try{savedAC=WindowsControl.ReadPowerMode(true);}catch{preservePower=false;}
                     try{savedDC=WindowsControl.ReadPowerMode(false);}catch{preservePower=false;}
                 }
@@ -48,17 +49,22 @@ internal static class Runner
                     }
                     else report.Steps.Add(new StepResult("FanProfile","skipped","Cannot preserve unreadable unselected AC/DC power modes safely."));
                 }
+                report.Steps.AddRange(AdditionalControl.Apply(c,preservePower||c.PowerMode!=0));
                 if(c.PowerMode!=0){
                     report.Steps.Add(WindowsControl.SetPowerMode(true,ModeConfiguration.PowerGuid(c.PowerMode)));
                     report.Steps.Add(WindowsControl.SetPowerMode(false,ModeConfiguration.PowerGuid(c.PowerMode)));
-                }else if(fanMayHaveChanged){
+                }else if(fanMayHaveChanged||additionalSchemeRefresh){
                     if(savedAC.HasValue)report.Steps.Add(WindowsControl.SetPowerMode(true,savedAC.Value));
                     if(savedDC.HasValue)report.Steps.Add(WindowsControl.SetPowerMode(false,savedDC.Value));
                 }
-                if(c.Brightness100)report.Steps.AddRange(WindowsControl.SetBrightness100());
-                if(c.Volume100)report.Steps.AddRange(WindowsControl.SetVolume100());
-                if(c.EnergySaver!=0)report.Steps.AddRange(WindowsControl.SetEnergySaver(c.EnergySaver==1));
+                // Clear a selected saver override before HDR; brightness follows
+                // display reconfiguration so a driver transition cannot reset it.
+                if(c.EnergySaver==2)report.Steps.AddRange(WindowsControl.SetEnergySaver(false));
                 if(c.RefreshRate!=0){DisplayChangeResult display=DisplayControl.Apply(c.DisplayId,c.RefreshRate);report.Steps.Add(new StepResult("DisplayRefreshRate",display.Status,display.Detail));}
+                if(c.Hdr!=0){DisplayChangeResult hdr=HdrControl.Apply(c.DisplayId,c.Hdr==1);report.Steps.Add(new StepResult("DisplayHdr",hdr.Status,hdr.Detail));}
+                if(c.ContentBrightness!=0){DisplayChangeResult cabc=HdrControl.ApplyContentBrightness(c.DisplayId,c.ContentBrightness==1);report.Steps.Add(new StepResult("ContentBrightness",cabc.Status,cabc.Detail));}
+                if(c.Brightness>=0)report.Steps.AddRange(WindowsControl.SetBrightness(c.Brightness));
+                if(c.EnergySaver==1)report.Steps.AddRange(WindowsControl.SetEnergySaver(true));
             }else report.Mode="status";
             if(reportPath!=null)report.State=new ModeSnapshot{Windows=WindowsControl.ReadState(),Fan=FanControl.ReadState()};
             foreach(StepResult step in report.Steps)if(step.Status=="error")return 1;
