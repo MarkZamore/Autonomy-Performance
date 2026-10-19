@@ -62,29 +62,23 @@
                             <CheckBox x:Name="TaskbarRepairSwitch" Style="{StaticResource TriStateSwitch}" IsChecked="False" ToolTip="Режим 1: Главная панель задач и панель задач, в которой открыто окно&#x0A;Режим 2: Панель задач, в которой открыто окно"><TextBlock Text="Исправление панели задач"/></CheckBox>
                         </StackPanel>
                     </Expander>
-                    <Expander x:Name="ArmourySection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="ARMOURY CRATE">
-                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="ArmouryCrateIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.ArmouryCrate}"/><TextBlock Grid.Column="1" Text="ARMOURY CRATE" VerticalAlignment="Center"/></Grid></Expander.Header>
+                    <Expander x:Name="ArmourySection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="Armoury Crate">
+                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="ArmouryCrateIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.ArmouryCrate}"/><TextBlock Grid.Column="1" Text="Armoury Crate" VerticalAlignment="Center"/></Grid></Expander.Header>
                         <Grid/>
                     </Expander>
                     <Expander x:Name="PerformanceSection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="ScreenXpert">
                         <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="ScreenXpertIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.ScreenXpert}"/><TextBlock Grid.Column="1" Text="ScreenXpert" VerticalAlignment="Center"/></Grid></Expander.Header>
                         <StackPanel>
+                            <ComboBox x:Name="FanModeSelector" AutomationProperties.Name="Режим вентилятора"/>
                             <CheckBox x:Name="BatteryCareSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Режим бережной зарядки"/></CheckBox>
-                            <GroupBox x:Name="FanModesGroup" Header="Режим вентилятора" Style="{StaticResource CaptionFrame}">
-                                <StackPanel>
-                                    <CheckBox x:Name="FanPerformance"><TextBlock Text="Режим высокой производительности"/></CheckBox>
-                                    <CheckBox x:Name="FanStandard"><TextBlock Text="Стандартный режим"/></CheckBox>
-                                    <CheckBox x:Name="FanWhisper"><TextBlock Text="Тихий режим"/></CheckBox>
-                                </StackPanel>
-                            </GroupBox>
                         </StackPanel>
                     </Expander>
                     <Expander x:Name="WallpaperSection" AutomationProperties.Name="Wallpaper Engine">
                         <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="WallpaperEngineIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.WallpaperEngine}"/><TextBlock Grid.Column="1" Text="Wallpaper Engine" VerticalAlignment="Center"/></Grid></Expander.Header>
                         <StackPanel>
+                            <CheckBox x:Name="WallpaperApplicationSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Wallpaper Engine"/></CheckBox>
                             <CheckBox x:Name="WallpaperPlaybackSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Воспроизведение обоев"/></CheckBox>
                             <CheckBox x:Name="WallpaperAudioSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Звук обоев"/></CheckBox>
-                            <CheckBox x:Name="WallpaperApplicationSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Wallpaper Engine"/></CheckBox>
                         </StackPanel>
                     </Expander>
                 </StackPanel>
@@ -98,7 +92,12 @@
                         </Viewbox>
                         <Button x:Name="ResetScriptButton" Grid.Column="1" Style="{StaticResource IconActionButton}" Margin="8,0,0,0" VerticalAlignment="Center" AutomationProperties.Name="Сбросить настройки скрипта"><TextBlock Text="&#xE74D;" FontFamily="{StaticResource Font.Icons}" FontSize="16" TextWrapping="NoWrap"/></Button>
                     </Grid>
-                    <TextBox x:Name="ScriptPreview" Grid.Row="1" Margin="{StaticResource Pad.Preview}" Style="{StaticResource PreviewTextBox}" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Предпросмотр скрипта"/>
+                    <ScrollViewer x:Name="ScriptPreview" Grid.Row="1" Margin="{StaticResource Pad.Preview}" Style="{StaticResource SettingsScrollViewer}" Focusable="False" FocusVisualStyle="{x:Null}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Предпросмотр скрипта">
+                        <Grid>
+                            <TextBlock x:Name="PreviewEmpty" Text="" Foreground="{DynamicResource Brush.TextMuted}"/>
+                            <ItemsControl x:Name="PreviewActions" Visibility="Collapsed" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                        </Grid>
+                    </ScrollViewer>
                 </Grid>
             </Border>
         </Grid>

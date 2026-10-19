@@ -8,6 +8,7 @@ Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
 $app=New-Object Windows.Application
 $ui=New-Object ConstructorWindow
 function Assert($condition,$message){if(-not $condition){throw $message}}
+function Set-FanMode([int]$profile){$fan=$ui.Window.FindName('FanModeSelector');$fan.SelectedItem=@($fan.Items|Where-Object Profile -eq $profile)[0]}
 function Clear-Actions {
     $ui.ResetScript()
 }
@@ -40,21 +41,21 @@ try {
     $preview=$win.FindName('ScriptPreview')
     Assert ($win.Title -eq 'Autonomy&Performance') 'Window title does not match executable name'
     Assert ($win.Width -eq 1000 -and $win.Height -eq 700 -and $win.MinWidth -eq 820 -and $win.MinHeight -eq 560) 'Window geometry differs from approved layout'
-    Assert ($preview.IsReadOnly -and $preview.Text -eq 'Действия не выбраны.') 'Preview initial state failed'
+    Assert ($preview -is [Windows.Controls.ScrollViewer] -and $ui.PreviewText -eq '') 'Preview initial state failed'
     foreach($section in @('PerformanceSection','WallpaperSection','ArmourySection','PowerSection','DisplaySection','AdditionalSection')){Assert (-not $win.FindName($section).IsExpanded) ('Section not collapsed: '+$section)}
     Assert (-not $ui.Configuration.HasActions -and -not $win.FindName('SaveButton').IsEnabled) 'Initial selection is not empty'
     $win.FindName('PowerSection').IsExpanded=$true
-    $win.FindName('EnergySaverSwitch').IsChecked=$true;$win.FindName('FanWhisper').IsChecked=$true
-    Assert ($preview.Text -eq "Включить энергосбережение`r`n`r`nТихий режим вентилятора") 'Autonomy preview is not localized or separated into unnumbered paragraphs'
-    $win.FindName('FanPerformance').IsChecked=$true
-    Assert ($preview.Text -eq "Включить энергосбережение`r`n`r`nПроизводительный режим вентилятора") 'Fan conflict not reflected in preview'
+    $win.FindName('EnergySaverSwitch').IsChecked=$true;Set-FanMode 1
+    Assert ($ui.PreviewText -eq "Включить энергосбережение`r`n`r`nТихий режим вентилятора") 'Autonomy preview is not localized or separated into unnumbered paragraphs'
+    Set-FanMode 2
+    Assert ($ui.PreviewText -eq "Включить энергосбережение`r`n`r`nПроизводительный режим вентилятора") 'Fan conflict not reflected in preview'
     $win.FindName('EnergySaverSwitch').IsChecked=$null
-    Assert ($preview.Text -eq 'Производительный режим вентилятора') 'Preview paragraph did not update'
-    $win.FindName('FanPerformance').IsChecked=$false
-    Assert ($preview.Text -eq 'Действия не выбраны.') 'Preview did not clear'
+    Assert ($ui.PreviewText -eq 'Производительный режим вентилятора') 'Preview paragraph did not update'
+    Set-FanMode 0
+    Assert ($ui.PreviewText -eq '') 'Preview did not clear'
     $win.FindName('EnergySaverSwitch').IsChecked=$false
     Assert ($ui.Configuration.EnergySaver -eq 2) 'Saver off state failed'
-    $win.FindName('FanWhisper').IsChecked=$true;$win.FindName('FanPerformance').IsChecked=$true
+    Set-FanMode 1;Set-FanMode 2
     Assert ($ui.Configuration.FanProfile -eq 2) 'Fan replacement failed'
     $win.FindName('Efficiency').IsChecked=$true;$win.FindName('Balanced').IsChecked=$true;$win.FindName('BestPerformance').IsChecked=$true
     Assert ((-not $win.FindName('Efficiency').IsChecked)-and(-not $win.FindName('Balanced').IsChecked)) 'Power conflict failed'
@@ -64,15 +65,15 @@ try {
     Assert ($ui.Configuration.PowerMode -eq 0 -and -not $win.FindName('Efficiency').IsChecked -and -not $win.FindName('Balanced').IsChecked) 'Power does not return to unchanged'
     Clear-Actions
     Assert (-not $win.FindName('SaveButton').IsEnabled) 'Save stays enabled after clearing'
-    $win.FindName('FanWhisper').IsChecked=$true;$win.FindName('EnergySaverSwitch').IsChecked=$false;$win.FindName('Balanced').IsChecked=$true
+    Set-FanMode 1;$win.FindName('EnergySaverSwitch').IsChecked=$false;$win.FindName('Balanced').IsChecked=$true
     Assert ($win.FindName('SaveButton').IsEnabled) 'Save disabled for mixed profile'
     $win.FindName('PowerSection').IsExpanded=$false
     Assert ($ui.Configuration.PowerMode -eq 2) 'Collapsing a category clears selection'
     Clear-Actions
-    $win.FindName('EnergySaverSwitch').IsChecked=$true;$win.FindName('FanWhisper').IsChecked=$true;$win.FindName('Balanced').IsChecked=$true
-    Assert ($preview.Text.Contains('Сбалансированный')) 'Power missing from preview'
+    $win.FindName('EnergySaverSwitch').IsChecked=$true;Set-FanMode 1;$win.FindName('Balanced').IsChecked=$true
+    Assert ($ui.PreviewText.Contains('Сбалансированный')) 'Power missing from preview'
     $win.FindName('Efficiency').IsChecked=$true
-    Assert ($preview.Text.Contains('Максимальная эффективность энергосбережения') -and -not $preview.Text.Contains('Сбалансированный')) 'Power replacement not reflected'
+    Assert ($ui.PreviewText.Contains('Максимальная эффективность энергосбережения') -and -not $ui.PreviewText.Contains('Сбалансированный')) 'Power replacement not reflected'
     $font=[Windows.Media.FontFamily]$app.Resources['Font.Family']
     Assert ($font.Source -match 'Segoe UI Variable Text' -and $font.Source -notmatch 'Montserrat|pack:') 'System font family not used'
     Assert ($font.GetTypefaces().Count -gt 0) 'System font unavailable'
@@ -91,22 +92,22 @@ try {
     Assert ($scroll.ScrollableHeight -gt 0) 'Expanded settings do not offer vertical scrolling'
     $scroll.ScrollToBottom();$grid.UpdateLayout()
     $results+=Render-Ui @{Name='expanded-bottom';Width=984;Height=661;Scale=1}
-    $original=$preview.Text
-    $preview.Text=(@('Длинная настройка выбранного экрана: 2880 × 1800, частота обновления 144 Гц')*50)-join "`r`n`r`n"
+    $actions=$win.FindName('PreviewActions');$original=@($actions.Items);$actions.Items.Clear()
+    foreach($i in 1..50){$row=[Windows.Controls.Button]::new();$row.Style=$app.Resources['ScriptPreviewAction'];$text=[Windows.Controls.TextBlock]::new();$text.Text='Длинная настройка выбранного экрана: 2880 × 1800, частота обновления 144 Гц';$text.TextWrapping='Wrap';$row.Content=$text;[void]$actions.Items.Add($row)}
     $results+=Render-Ui @{Name='long-preview';Width=804;Height=521;Scale=1}
-    [void]$preview.ApplyTemplate();$previewHost=$preview.Template.FindName('PART_ContentHost',$preview);[void]$previewHost.ApplyTemplate()
+    $previewHost=$preview;[void]$previewHost.ApplyTemplate()
     $presenter=$previewHost.Template.FindName('PART_ScrollContentPresenter',$previewHost);$bar=$previewHost.Template.FindName('PART_VerticalScrollBar',$previewHost)
     Assert ($previewHost.ScrollableHeight -gt 0 -and $bar.Visibility -eq 'Visible') 'Long preview has no visible scrollbar'
     Assert ($previewHost.ActualWidth-$presenter.ActualWidth -ge $bar.ActualWidth) 'Preview scrollbar overlaps its text'
     $focusedKey=[Windows.UIElement].GetField('IsKeyboardFocusedPropertyKey',[Reflection.BindingFlags]'Static,NonPublic').GetValue($null)
     $preview.SetValue($focusedKey,$true);$grid.UpdateLayout()
     Assert ($null -eq $preview.Template.FindName('FocusRing',$preview) -and $null -eq $preview.FocusVisualStyle) 'Preview focus outline remains'
-    $preview.SelectAll();Assert ($preview.SelectedText -eq $preview.Text) 'Preview cannot select all settings'
-    Assert ([Windows.Input.ApplicationCommands]::Copy.CanExecute($null,$preview)) 'Preview copy command is unavailable'
-    $preview.Select(0,0);$preview.SetValue($focusedKey,$false);$preview.Text=$original
+    Assert (-not ($preview -is [Windows.Controls.Primitives.TextBoxBase])) 'Preview still supports selectable text'
+    Assert ([Windows.Input.ApplicationCommands]::Copy.CanExecute($null,$preview)) 'Copying the full script is unavailable'
+    $preview.SetValue($focusedKey,$false);$actions.Items.Clear();foreach($item in $original){[void]$actions.Items.Add($item)}
     Assert ($win.FindName('ResetScriptButton').IsEnabled) 'Reset is disabled for a configured script'
     $win.FindName('ResetScriptButton').RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
-    Assert (-not $ui.Configuration.HasActions -and -not $win.FindName('ResetScriptButton').IsEnabled -and $preview.Text -eq 'Действия не выбраны.') 'Reset button does not clear the script'
+    Assert (-not $ui.Configuration.HasActions -and -not $win.FindName('ResetScriptButton').IsEnabled -and $ui.PreviewText -eq '') 'Reset button does not clear the script'
     $results|ConvertTo-Json -Depth 4|Set-Content -LiteralPath (Join-Path $art 'ui-results.json') -Encoding UTF8
     $results
     'PASS: Russian UI, empty/collapsed start, exclusive power selection, independent saver/power, live preview, system fonts, themed states, all six sections and footer geometry. DPI images use offscreen rendering; live native DPI/theme validation is separate.'

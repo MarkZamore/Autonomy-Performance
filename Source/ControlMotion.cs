@@ -19,6 +19,37 @@ public static class ControlMotion
         control.Loaded+=delegate { UpdateSwitch(control,false); };
         UpdateSwitch(control,false);
     }
+    public static void AttachComboBox(ComboBox control)
+    {
+        EventHandler changed=delegate { UpdateComboBox(control,control.IsDropDownOpen,true); };
+        control.DropDownOpened+=changed;control.DropDownClosed+=changed;
+        control.Loaded+=delegate { UpdateComboBox(control,control.IsDropDownOpen,false); };
+        UpdateComboBox(control,control.IsDropDownOpen,false);
+    }
+    static void UpdateComboBox(ComboBox control,bool open,bool requested)
+    {
+        TurnArrow(control,"ComboToggle","ComboChevron",open?0:-90,requested);
+    }
+    public static void AttachCategory(Expander control)
+    {
+        RoutedEventHandler changed=delegate(object sender,RoutedEventArgs e){if(e.OriginalSource==control)UpdateCategoryArrow(control,control.IsExpanded,true);};
+        control.Expanded+=changed;control.Collapsed+=changed;
+        control.Loaded+=delegate{UpdateCategoryArrow(control,control.IsExpanded,false);};
+        UpdateCategoryArrow(control,control.IsExpanded,false);
+    }
+    static void UpdateCategoryArrow(Expander control,bool expanded,bool requested)
+    {
+        TurnArrow(control,"HeaderToggle","Chevron",expanded?0:-90,requested);
+    }
+    static void TurnArrow(Control control,string toggleName,string chevronName,double angle,bool requested)
+    {
+        control.ApplyTemplate();
+        ToggleButton toggle=control.Template.FindName(toggleName,control) as ToggleButton;if(toggle==null)return;
+        toggle.ApplyTemplate();Path chevron=toggle.Template.FindName(chevronName,toggle) as Path;if(chevron==null)return;
+        RotateTransform turn=chevron.RenderTransform as RotateTransform;
+        if(turn==null||turn.IsFrozen){turn=turn==null?new RotateTransform():turn.Clone();chevron.RenderTransform=turn;}
+        Move(turn,RotateTransform.AngleProperty,angle,Animate(control,requested));
+    }
     static void UpdateSwitch(CheckBox control,bool requested)
     {
         control.ApplyTemplate();
@@ -40,7 +71,7 @@ public static class ControlMotion
             label.Text=taskbar?(value==false?"Не менять":value==true?"Режим 2":"Режим 1"):value==true?on:value==false?off:"Не менять";
         }
         Color blue=((SolidColorBrush)control.FindResource("Brush.CheckFill")).Color;
-        Color dark=((SolidColorBrush)control.FindResource("Brush.CheckMark")).Color;
+        Color dark=((SolidColorBrush)control.FindResource("Brush.ControlDark")).Color;
         Color background=binary?(value==true?blue:Color.FromArgb(77,97,113,128)):taskbar?(value==false?Color.FromArgb(77,97,113,128):blue):value==true?blue:value==false?dark:Color.FromArgb(77,97,113,128);
         Color foreground=binary?(value==true?dark:blue):taskbar?(value==false?blue:dark):value==true?dark:blue;
         Move(move,TranslateTransform.XProperty,value==true?46:value==false?0:23,animate);

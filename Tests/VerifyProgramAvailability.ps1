@@ -10,6 +10,7 @@ function Assert($condition,$message){$script:checks++;if(-not $condition){throw 
 $apply=$ui.GetType().GetMethod('ApplyProgramAvailability',[Reflection.BindingFlags]'Instance,NonPublic')
 $readPresetCapabilities=$ui.GetType().GetMethod('ReadPresetCapabilities',[Reflection.BindingFlags]'Instance,NonPublic')
 function SetPrograms([bool]$screen,[bool]$wallpaper,[bool]$armoury){[void]$apply.Invoke($ui,[object[]]@($screen,$wallpaper,$armoury))}
+function Set-FanMode([int]$profile){$fan=$window.FindName('FanModeSelector');$fan.SelectedItem=@($fan.Items|Where-Object Profile -eq $profile)[0]}
 try{
     $timer=[Diagnostics.Stopwatch]::StartNew();$actual=[ProgramAvailability]::Read();$timer.Stop()
     Assert ($window.FindName('PerformanceSection').IsEnabled -eq $actual.ScreenXpert) 'ScreenXpert category differs from installation probe'
@@ -21,7 +22,7 @@ try{
         $section.IsExpanded=$true;Assert $section.IsExpanded ('Installed category cannot expand: '+$name)
     }
     $window.FindName('DarkThemeSwitch').IsChecked=$true
-    $window.FindName('FanStandard').IsChecked=$true
+    Set-FanMode 3
     foreach($name in @('BatteryCareSwitch','WallpaperPlaybackSwitch','WallpaperAudioSwitch','WallpaperApplicationSwitch')){$window.FindName($name).IsChecked=$true}
     Assert ($ui.Configuration.FanProfile -eq 3 -and $ui.Configuration.WallpaperPlayback -eq 1 -and $ui.Configuration.BatteryCare -eq 1) 'Installed program actions unavailable'
     SetPrograms $false $false $false
@@ -34,15 +35,15 @@ try{
         $section.IsExpanded=$true
         Assert (-not $section.IsExpanded) ('Missing category can be programmatically expanded: '+$name)
     }
-    foreach($name in @('FanWhisper','FanPerformance','FanStandard')){Assert ($window.FindName($name).IsChecked -eq $false -and -not $window.FindName($name).IsEnabled) ('Unavailable fan action retained/enabled: '+$name)}
+    Assert ($window.FindName('FanModeSelector').SelectedItem.Profile -eq 0 -and -not $window.FindName('FanModeSelector').IsEnabled) 'Unavailable fan choice is retained or enabled'
     foreach($name in @('BatteryCareSwitch','WallpaperPlaybackSwitch','WallpaperAudioSwitch','WallpaperApplicationSwitch')){Assert ($null -eq $window.FindName($name).IsChecked -and -not $window.FindName($name).IsEnabled) ('Unavailable program action retained/enabled: '+$name)}
     $configuration=$ui.Configuration
     Assert ($configuration.FanProfile -eq 0 -and $configuration.BatteryCare -eq 0 -and $configuration.WallpaperPlayback -eq 0 -and $configuration.WallpaperAudio -eq 0 -and $configuration.WallpaperApplication -eq 0) 'Missing program action reaches generated configuration'
     Assert ($configuration.DarkTheme -eq 1 -and $configuration.HasActions) 'Unavailable category cleared independent Windows action'
-    foreach($name in @('FanWhisper','FanPerformance','FanStandard')){
-        $window.FindName($name).IsChecked=$true
-        Assert ($ui.Configuration.FanProfile -eq 0) ('Disabled fan action bypassed configuration guard: '+$name)
-        $window.FindName($name).IsChecked=$false
+    foreach($profile in @(1,2,3)){
+        Set-FanMode $profile
+        Assert ($ui.Configuration.FanProfile -eq 0) ('Disabled fan action bypassed configuration guard: '+$profile)
+        Set-FanMode 0
     }
     foreach($name in @('BatteryCareSwitch','WallpaperPlaybackSwitch','WallpaperAudioSwitch','WallpaperApplicationSwitch')){
         $window.FindName($name).IsChecked=$true
@@ -56,7 +57,7 @@ try{
         $capabilities=$readPresetCapabilities.Invoke($ui,[object[]]@($performance))
         $preset=[PresetBuilder]::Build($performance,$capabilities)
         Assert ($preset.FanProfile -eq 0) 'Preset selected an action for absent ScreenXpert'
-        foreach($name in @('FanWhisper','FanPerformance','FanStandard')){Assert ($window.FindName($name).IsChecked -eq $false) 'Preset left checked disabled fan choice'}
+        Assert ($window.FindName('FanModeSelector').SelectedItem.Profile -eq 0) 'Preset left a selected disabled fan choice'
         Assert ($preset.WallpaperPlayback -eq 0 -and $preset.WallpaperAudio -eq 0 -and $preset.WallpaperApplication -eq 0) 'Preset selected missing Wallpaper Engine action'
         Assert ($preset.DarkTheme -eq $(if($capabilities.DarkTheme){1}else{0})) 'Missing apps changed independent Windows-action availability in the preset'
     }
@@ -65,7 +66,7 @@ try{
         Assert ($window.FindName('PerformanceSection').IsEnabled -eq $values[0] -and $window.FindName('WallpaperSection').IsEnabled -eq $values[1] -and $window.FindName('ArmourySection').IsEnabled -eq $values[2]) 'Availability categories are coupled'
     }
     SetPrograms $true $true $true
-    $ui.ResetScript();$window.FindName('FanWhisper').IsChecked=$true;$window.FindName('WallpaperAudioSwitch').IsChecked=$true
+    $ui.ResetScript();Set-FanMode 1;$window.FindName('WallpaperAudioSwitch').IsChecked=$true
     Assert ($ui.Configuration.FanProfile -eq 1 -and $ui.Configuration.WallpaperAudio -eq 1) 'Newly installed program did not become editable'
     SetPrograms $actual.ScreenXpert $actual.WallpaperEngine $actual.ArmouryCrate
     'PASS: '+$script:checks+' checks; independent installation gates, disabled appearance/focus/expansion, action cleanup, presets and configuration guards. Native probe: ScreenXpert='+$actual.ScreenXpert+', WallpaperEngine='+$actual.WallpaperEngine+', ArmouryCrate='+$actual.ArmouryCrate+'; '+$timer.ElapsedMilliseconds+' ms.'

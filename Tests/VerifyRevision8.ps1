@@ -13,7 +13,7 @@ $art=Join-Path $PSScriptRoot 'Artifacts\Revision8'
 function Assert($condition,$message){$script:checks++;if(-not $condition){throw $message}}
 function Control($name){$c=$win.FindName($name);Assert ($null -ne $c) ('Missing control: '+$name);return $c}
 function Label($control){if($control.Content -is [Windows.Controls.TextBlock]){return $control.Content.Text};return [string]$control.Content}
-function Paragraphs {return @((Control 'ScriptPreview').Text -split '(?:\r?\n){2}')}
+function Paragraphs {return @($ui.PreviewText -split '(?:\r?\n){2}')}
 function Display-Actions {return @($ui.Configuration.GetDisplayActions())}
 function Display-Action($id){return @(Display-Actions | Where-Object DisplayId -eq $id)|Select-Object -First 1}
 function Screen-Label($d){return ($d.Label -split ' - ',2)[0]}
@@ -113,9 +113,16 @@ try {
         if($s){$scale.SelectedItem=$s}
         if($hdr.IsEnabled){$hdr.IsChecked=$true}
         if($dynamic.IsEnabled){$dynamic.IsChecked=$false}
-        if($brightness.IsEnabled){$brightness.IsChecked=$true;$slider.Value=27+$i}
-        $expected[$d.MonitorId]=[pscustomobject]@{Id=$d.MonitorId;Label=$d.Label;Width=$r.Width;Height=$r.Height;Rate=$h.Rate;Scale=$(if($s){$s.Percent}else{0});Hdr=$(if($hdr.IsEnabled){1}else{0});Dynamic=$(if($dynamic.IsEnabled){2}else{0});Brightness=$(if($brightness.IsEnabled){27+$i}else{-1})}
+        $expected[$d.MonitorId]=[pscustomobject]@{Id=$d.MonitorId;Label=$d.Label;Width=$r.Width;Height=$r.Height;Rate=$h.Rate;Scale=$(if($s){$s.Percent}else{0});Hdr=$(if($hdr.IsEnabled){1}else{0});Dynamic=$(if($dynamic.IsEnabled){2}else{0});Brightness=-1}
         Assert (@(Display-Actions).Count -eq $expected.Count) 'Changing the selected screen replaced a previous screen action'
+    }
+    $commonBrightness=$brightness.IsEnabled
+    if($commonBrightness){
+        $brightness.IsChecked=$true;$slider.Value=37
+        $target=@(Display-Actions|Where-Object {$_.Brightness -ge 0})
+        Assert ($target.Count -eq 1 -and [DisplayBrightnessControl]::Available($target[0].DisplayId)) 'Brightness is not tied to exactly one supported panel'
+        $expected[$target[0].DisplayId].Brightness=37
+        Assert ((Paragraphs) -contains 'Яркость 37%' -and $ui.PreviewText -notmatch '(?m)^Экран \d+ - яркость') 'Common brightness preview retains a display prefix'
     }
     $actions=@(Display-Actions)
     Assert ($ui.Configuration.DisplayWidth -eq 0 -and $ui.Configuration.RefreshRate -eq 0 -and $ui.Configuration.DisplayScale -eq 0 -and $ui.Configuration.Hdr -eq 0 -and $ui.Configuration.DynamicRefresh -eq 0 -and $ui.Configuration.ContentBrightness -eq 0) 'New UI exports both legacy and array display actions'
@@ -126,10 +133,10 @@ try {
         Assert ($resolution.SelectedItem.Width -eq $e.Width -and $resolution.SelectedItem.Height -eq $e.Height -and $rate.SelectedItem.Rate -eq $e.Rate) 'Display editor does not restore a screen selection'
         Assert ($scale.SelectedItem.Percent -eq $e.Scale) 'Display editor does not restore per-screen scale'
         Assert (($hdr.IsChecked -eq $true) -eq ($e.Hdr -eq 1)) 'Display editor does not restore per-screen HDR'
-        Assert ($brightness.IsChecked -eq ($e.Brightness -ge 0)) 'Display editor does not restore per-screen brightness'
+        Assert ($brightness.IsChecked -eq $commonBrightness -and $slider.Value -eq 37) 'Changing the selected screen changes the common brightness editor'
     }
     if($display.Items.Count -lt 2){$script:notes.Add('Only one physical screen available; multi-target export is additionally covered by a synthetic configuration.')}else{
-        $text=$preview.Text;$last=-1
+        $text=$ui.PreviewText;$last=-1
         foreach($d in $display.Items){$first=$text.IndexOf((Screen-Label $d),[StringComparison]::Ordinal);Assert ($first -gt $last) 'Preview order follows edit order instead of screen numbering';$last=$first}
     }
     $export=Join-Path $art 'MultiDisplay.exe'
@@ -153,16 +160,15 @@ try {
     Assert ($ui.Configuration.DarkTheme -eq 0 -and $ui.Configuration.EnergySaver -eq 1) 'Removing one global preview action changed another action'
     $before=Copy-Configuration;$ui.RemovePreviewAction(-1);$ui.RemovePreviewAction(2147483647)
     Assert ((Copy-Configuration) -eq $before) 'Out-of-range preview removal changed the script'
-    # Text remains a normal selectable/copyable TextBox without a focus outline.
-    Assert ($preview -is [Windows.Controls.TextBox] -and $preview.IsReadOnly) 'Preview lost text selection/copy support'
-    $preview.SelectAll();Assert ($preview.SelectedText -eq $preview.Text) 'Select All no longer selects the complete script'
-    Assert ([Windows.Input.ApplicationCommands]::Copy.CanExecute($null,$preview)) 'Copy command is disabled for selected preview text'
+    # Action rows replace editable/selectable text while full-script copy remains available.
+    Assert ($preview -is [Windows.Controls.ScrollViewer] -and @((Descendants $preview)|Where-Object {$_ -is [Windows.Controls.Primitives.TextBoxBase]}).Count -eq 0) 'Preview still exposes selectable text'
+    Assert ([Windows.Input.ApplicationCommands]::Copy.CanExecute($null,$preview)) 'Full-script copy command is disabled'
     Assert ($null -eq $preview.FocusVisualStyle) 'Preview uses a default focus outline'
     [void]$preview.ApplyTemplate();$ring=$preview.Template.FindName('FocusRing',$preview)
     Assert ($null -eq $ring -or $ring.Visibility -eq 'Collapsed') 'Preview template exposes a focus outline'
     $focusedKey=[Windows.UIElement].GetField('IsKeyboardFocusedPropertyKey',[Reflection.BindingFlags]'Static,NonPublic').GetValue($null)
     $preview.SetValue($focusedKey,$true);[void](Layout 984 661)
-    Assert ($null -eq $ring -or $ring.Visibility -eq 'Collapsed') 'Focusing selectable preview text reveals an outline'
+    Assert ($null -eq $ring -or $ring.Visibility -eq 'Collapsed') 'Focusing preview rows reveals an outline'
     $preview.SetValue($focusedKey,$false)
     foreach($name in $categoryNames){(Control $name).IsExpanded=$true}
     foreach($name in @('WallpaperPlaybackSwitch','WallpaperAudioSwitch','WallpaperApplicationSwitch','ScreenSaverSwitch','UsbPowerSwitch','ClockSecondsSwitch')){(Control $name).IsChecked=$true}
@@ -174,8 +180,8 @@ try {
     Assert ($batteryPoint.X -ge $right) 'Battery-wear readout is not to the right of Performance'
     $resetPoint=$reset.TranslatePoint([Windows.Point]::new(0,0),$grid)
     Assert ($resetPoint.X -lt $preview.TranslatePoint([Windows.Point]::new($preview.ActualWidth,0),$grid).X) 'Reset action is outside the preview header'
-    $previewHost=$preview.Template.FindName('PART_ContentHost',$preview)
-    Assert ($previewHost -is [Windows.Controls.ScrollViewer]) 'Preview does not use a scrolling text host'
+    $previewHost=$preview
+    Assert ($previewHost -is [Windows.Controls.ScrollViewer]) 'Preview does not use a scrolling action host'
     [void]$previewHost.ApplyTemplate();$scrollbar=$previewHost.Template.FindName('PART_VerticalScrollBar',$previewHost);$presenter=$previewHost.Template.FindName('PART_ScrollContentPresenter',$previewHost)
     Assert ($null -ne $scrollbar -and $null -ne $presenter) 'Preview scrolling template is incomplete'
     $previewHost.ScrollToBottom();$grid.UpdateLayout()
@@ -184,8 +190,9 @@ try {
         $barLeft=$scrollbar.TranslatePoint([Windows.Point]::new(0,0),$previewHost).X
         Assert ($contentRight -le $barLeft) 'Preview scrollbar overlaps the text area'
     }else{
-        $script:notes.Add('The selected script fits at normal size; forced long text verifies the same preview template.')
-        $preview.Text=((1..60|ForEach-Object {'Проверка длинного предпросмотра настроек - '+$_}) -join "`r`n`r`n")
+        $script:notes.Add('The selected script fits at normal size; synthetic action rows verify the same preview scrolling template.')
+        $actions=Control 'PreviewActions';$actions.Items.Clear()
+        foreach($i in 1..60){$row=[Windows.Controls.Button]::new();$row.Style=$app.Resources['ScriptPreviewAction'];$text=[Windows.Controls.TextBlock]::new();$text.Text='Проверка длинного предпросмотра настроек - '+$i;$text.TextWrapping='Wrap';$row.Content=$text;[void]$actions.Items.Add($row)}
         $grid=Layout 804 521;$previewHost.ScrollToBottom();$grid.UpdateLayout()
         Assert ($previewHost.ScrollableHeight -gt 0) 'A long preview has no scrollable text host'
         $contentRight=$presenter.TranslatePoint([Windows.Point]::new($presenter.ActualWidth,0),$previewHost).X
@@ -198,7 +205,7 @@ try {
     $chosen=$ui.IconChoice.BuiltInIndex;$ui.ResetScript()
     Assert (-not $ui.Configuration.HasActions -and @(Display-Actions).Count -eq 0 -and -not (Control 'SaveButton').IsEnabled) 'Reset retained an action or enabled Save'
     Assert ($ui.IconChoice.BuiltInIndex -eq $chosen) 'Reset changed the icon choice'
-    Assert ($preview.Text -eq 'Действия не выбраны.') 'Reset did not clear preview text'
+    Assert ($ui.PreviewText -eq '') 'Reset did not clear preview text'
     Assert-PresetIntegration $true
     Assert ($ui.IconChoice.BuiltInIndex -eq $chosen) 'Preset changed the icon choice'
     Assert-PresetIntegration $false
@@ -215,5 +222,5 @@ try {
     Assert ($read.GetDisplayActions().Count -eq 2 -and $read.GetDisplayActions()[0].DisplayId -eq $a.DisplayId -and $read.GetDisplayActions()[1].DisplayId -eq $b.DisplayId) 'Export merged/reordered monitor identities'
     Assert ($read.Displays[0].Brightness -eq 31 -and $read.Displays[1].Brightness -eq 73 -and $read.Displays[1].DynamicRefresh -eq 1 -and $read.Displays[1].ContentBrightness -eq 3) 'Export lost an individual monitor feature'
     [pscustomobject]@{Passed=$true;Checks=$script:checks;PhysicalDisplays=$display.Items.Count;NoSystemSettingsApplied=$true;NoClipboardChanged=$true;Notes=@($script:notes)}|ConvertTo-Json -Depth 4|Set-Content -LiteralPath (Join-Path $art 'results.json') -Encoding UTF8
-    'PASS: '+$script:checks+' checks; revised layout, labels, native recommendations/capability gates, independent monitor editing/export, ordered/removable preview, selection/copy, gutter, reset and presets. No system settings applied or clipboard changed.'
+    'PASS: '+$script:checks+' checks; revised layout, labels, native recommendations/capability gates, independent monitor editing/export, ordered/removable preview without selection, full-script copy availability, gutter, reset and presets. No system settings applied or clipboard changed.'
 }finally{$win.Close()}

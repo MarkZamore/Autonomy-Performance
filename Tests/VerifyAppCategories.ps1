@@ -7,27 +7,27 @@ $script:checks=0
 function Assert($condition,$message){$script:checks++;if(-not $condition){throw $message}}
 $readPresetCapabilities=[ConstructorWindow].GetMethod('ReadPresetCapabilities',[Reflection.BindingFlags]'Instance,NonPublic')
 try{
-    foreach($item in @(@('PerformanceSection','ScreenXpert','ScreenXpertIcon'),@('WallpaperSection','Wallpaper Engine','WallpaperEngineIcon'),@('ArmourySection','ARMOURY CRATE','ArmouryCrateIcon'))){
+    foreach($item in @(@('PerformanceSection','ScreenXpert','ScreenXpertIcon'),@('WallpaperSection','Wallpaper Engine','WallpaperEngineIcon'),@('ArmourySection','Armoury Crate','ArmouryCrateIcon'))){
         $section=$win.FindName($item[0]);Assert ($null -ne $section -and -not $section.IsExpanded) ('Missing/collapsed category: '+$item[1])
         Assert ([Windows.Automation.AutomationProperties]::GetName($section) -eq $item[1]) ('Wrong category name: '+$item[1])
         $image=$win.FindName($item[2]);Assert ($image.Source -is [Windows.Media.DrawingImage]) ('Category icon is not an embedded vector: '+$item[1])
         Assert ($image.Width -eq 20 -and $image.Height -eq 20 -and $image.Source.Width -eq 20 -and $image.Source.Height -eq 20) ('Category icon dimensions differ: '+$item[1])
     }
-    Assert ($win.FindName('ArmourySection').Content -is [Windows.Controls.Grid] -and $win.FindName('ArmourySection').Content.Children.Count -eq 0) 'ARMOURY CRATE is not empty'
-    $fan=$win.FindName('FanStandard');Assert ($fan -is [Windows.Controls.CheckBox]) 'Fan mode is not a checkbox'
-    $fan.IsChecked=$true;Assert ($ui.Configuration.FanProfile -eq 3 -and $win.FindName('ScriptPreview').Text.Contains('Стандартный режим вентилятора') -and -not $win.FindName('ScriptPreview').Text.Contains('вентиляторов')) 'Standard fan mode missing from config/preview'
-    $fan.IsChecked=$false
+    Assert ($win.FindName('ArmourySection').Content -is [Windows.Controls.Grid] -and $win.FindName('ArmourySection').Content.Children.Count -eq 0) 'Armoury Crate is not empty'
+    $fan=$win.FindName('FanModeSelector');Assert ($fan -is [Windows.Controls.ComboBox] -and $fan.Items.Count -eq 4 -and $fan.Items[0].ToString() -eq 'Не менять режим вентилятора') 'Fan mode list is incomplete'
+    $fan.SelectedIndex=3;Assert ($ui.Configuration.FanProfile -eq 3 -and $ui.PreviewText.Contains('Стандартный режим вентилятора') -and -not $ui.PreviewText.Contains('вентиляторов')) 'Standard fan mode missing from config/preview'
+    $fan.SelectedIndex=0
     $toggle=$win.FindName('WallpaperPlaybackSwitch');Assert ($toggle.IsThreeState -and $null -eq $toggle.IsChecked) 'Wallpaper switch is not neutral'
-    $toggle.IsChecked=$false;Assert ($ui.Configuration.WallpaperPlayback -eq 2 -and $ui.Configuration.HasActions -and $win.FindName('ScriptPreview').Text.Contains('паузу')) 'Wallpaper pause is not selected'
-    $toggle.IsChecked=$true;Assert ($ui.Configuration.WallpaperPlayback -eq 1 -and $win.FindName('ScriptPreview').Text.Contains('Продолжить')) 'Wallpaper play is not selected'
+    $toggle.IsChecked=$false;Assert ($ui.Configuration.WallpaperPlayback -eq 2 -and $ui.Configuration.HasActions -and $ui.PreviewText.Contains('паузу')) 'Wallpaper pause is not selected'
+    $toggle.IsChecked=$true;Assert ($ui.Configuration.WallpaperPlayback -eq 1 -and $ui.PreviewText.Contains('Продолжить')) 'Wallpaper play is not selected'
     $toggle.IsChecked=$null;Assert (-not $ui.Configuration.HasActions) 'Neutral wallpaper switch remains an action'
     $audio=$win.FindName('WallpaperAudioSwitch');Assert ($audio.IsThreeState -and $null -eq $audio.IsChecked) 'Wallpaper audio switch is not neutral'
-    $audio.IsChecked=$false;Assert ($ui.Configuration.WallpaperAudio -eq 2 -and $ui.Configuration.WallpaperPlayback -eq 0 -and $win.FindName('ScriptPreview').Text.Contains('Выключить звук')) 'Wallpaper audio mute is missing or changes playback'
-    $audio.IsChecked=$true;Assert ($ui.Configuration.WallpaperAudio -eq 1 -and $win.FindName('ScriptPreview').Text.Contains('Включить звук')) 'Wallpaper audio unmute is missing'
+    $audio.IsChecked=$false;Assert ($ui.Configuration.WallpaperAudio -eq 2 -and $ui.Configuration.WallpaperPlayback -eq 0 -and $ui.PreviewText.Contains('Выключить звук')) 'Wallpaper audio mute is missing or changes playback'
+    $audio.IsChecked=$true;Assert ($ui.Configuration.WallpaperAudio -eq 1 -and $ui.PreviewText.Contains('Включить звук')) 'Wallpaper audio unmute is missing'
     $audio.IsChecked=$null;Assert (-not $ui.Configuration.HasActions) 'Neutral wallpaper audio switch remains an action'
     $application=$win.FindName('WallpaperApplicationSwitch');Assert ($application.IsThreeState -and $null -eq $application.IsChecked -and $application.Content.Text -eq 'Wallpaper Engine') 'Wallpaper application switch is not neutral or retains the removed caption'
-    $application.IsChecked=$true;Assert ($ui.Configuration.WallpaperApplication -eq 1 -and $win.FindName('ScriptPreview').Text.Contains('Запустить Wallpaper Engine') -and -not $win.FindName('ScriptPreview').Text.Contains('без Steam')) 'Wallpaper application start is missing or retains the removed text'
-    $application.IsChecked=$false;Assert ($ui.Configuration.WallpaperApplication -eq 2 -and $win.FindName('ScriptPreview').Text.Contains('Завершить Wallpaper Engine')) 'Wallpaper application exit is missing'
+    $application.IsChecked=$true;Assert ($ui.Configuration.WallpaperApplication -eq 1 -and $ui.PreviewText.Contains('Запустить Wallpaper Engine') -and -not $ui.PreviewText.Contains('без Steam')) 'Wallpaper application start is missing or retains the removed text'
+    $application.IsChecked=$false;Assert ($ui.Configuration.WallpaperApplication -eq 2 -and $ui.PreviewText.Contains('Завершить Wallpaper Engine')) 'Wallpaper application exit is missing'
     $application.IsChecked=$null;Assert (-not $ui.Configuration.HasActions) 'Neutral wallpaper application switch remains an action'
     $art=Join-Path $PSScriptRoot 'Artifacts\AppCategories';[void][IO.Directory]::CreateDirectory($art)
     foreach($mode in @(1,2)){$c=New-Object ModeConfiguration;$c.WallpaperPlayback=$mode;$path=Join-Path $art ('Wallpaper-'+$mode+'.exe');[ExecutableExporter]::Save($path,$c,[EmbeddedAssets]::Read('Icon0'));Assert ([PeConfiguration]::Read($path).WallpaperPlayback -eq $mode) 'Wallpaper export lost configuration'}

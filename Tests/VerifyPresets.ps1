@@ -12,6 +12,7 @@ $displayFields=@([DisplayModeConfiguration].GetFields()|ForEach-Object {$_.Name}
 $snapshot=[ConstructorWindow].GetMethod('ReadPresetCapabilities',[Reflection.BindingFlags]'Instance,NonPublic')
 $results=@();$assertions=0
 function Assert($condition,$message){$script:assertions++;if(-not $condition){throw $message}}
+function Set-FanMode([int]$profile){$fan=$win.FindName('FanModeSelector');$fan.SelectedItem=@($fan.Items|Where-Object Profile -eq $profile)[0]}
 function Click($button){$button.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))}
 function Get-SelectionFiles {
     @([IO.Directory]::GetFiles($root)+[IO.Directory]::GetFiles([Environment]::GetFolderPath([Environment+SpecialFolder]::DesktopDirectory)))|Sort-Object
@@ -46,11 +47,11 @@ function Get-ExpectedPreview($configuration) {
         if($target.DynamicRefresh -ne 0){$text.Add($prefix+$(if($target.DynamicRefresh -eq 1){'включить динамическую частоту обновления'}else{'выключить динамическую частоту обновления'}))}
     }
     if($configuration.DarkTheme -eq 1){$text.Add('Включить тёмную тему Windows')}
-    if($configuration.TaskbarRepair -eq 2){$text.Add('Исправление панели задач - Все панели задач, затем Панель задач, в которой открыто окно')}
+    if($configuration.TaskbarRepair -ne 0){$text.Add('Исправление панели задач - Режим '+$configuration.TaskbarRepair)}
     if($configuration.FanProfile -ne 0){$text.Add($(if($configuration.FanProfile -eq 2){'Производительный режим вентилятора'}else{'Тихий режим вентилятора'}))}
+    if($configuration.WallpaperApplication -eq 1){$text.Add('Запустить Wallpaper Engine')}
     if($configuration.WallpaperPlayback -ne 0){$text.Add($(if($configuration.WallpaperPlayback -eq 1){'Продолжить воспроизведение обоев Wallpaper Engine'}else{'Поставить обои Wallpaper Engine на паузу'}))}
     if($configuration.WallpaperAudio -ne 0){$text.Add($(if($configuration.WallpaperAudio -eq 1){'Включить звук обоев Wallpaper Engine'}else{'Выключить звук обоев Wallpaper Engine'}))}
-    if($configuration.WallpaperApplication -eq 1){$text.Add('Запустить Wallpaper Engine')}
     return ,$text.ToArray()
 }
 function Assert-Preset([bool]$performance,[string]$label) {
@@ -68,10 +69,13 @@ function Assert-Preset([bool]$performance,[string]$label) {
         $display=@($win.FindName('DisplaySelector').Items|Where-Object {$_.MonitorId -eq $target.DisplayId})[0]
         $numbers+=[int][regex]::Match($display.DeviceName,'DISPLAY(\d+)$').Groups[1].Value
         Assert ($target.Brightness -eq -1 -and $target.ContentBrightness -eq 0) ('Preset retained brightness/CABC: '+$label)
+        $recommendedScale=[HdrControl]::InspectRecommendedScale($display.MonitorId);$offeredScales=[HdrControl]::InspectScales($display.MonitorId)
+        $expectedScale=if($performance -and $recommendedScale -gt 0 -and $offeredScales.Contains($recommendedScale)){$recommendedScale}else{0}
+        Assert ($target.DisplayScale -eq $expectedScale) ('Preset scale differs from the offered native recommendation: '+$label)
         if($target.DisplayWidth -ne 0){$mode=@($display.Resolutions|Where-Object {$_.Width -eq $target.DisplayWidth -and $_.Height -eq $target.DisplayHeight});Assert ($mode.Count -eq 1) ('Unavailable resolution: '+$label);if($target.RefreshRate -gt 0){Assert ($mode[0].Rates.Contains($target.RefreshRate)) ('Unavailable resolution/Hz pair: '+$label)}}
     }
     Assert ((($numbers|Sort-Object)-join ',') -eq ($numbers-join ',')) ('Display order is not numeric: '+$label)
-    $expectedLines=Get-ExpectedPreview $expected;$lines=@($win.FindName('ScriptPreview').Text -split '\r?\n\r?\n')
+    $expectedLines=Get-ExpectedPreview $expected;$lines=@($ui.PreviewText -split '\r?\n\r?\n')
     Assert ($lines.Count -eq $expectedLines.Count) ('Unexpected preview count: '+$label)
     for($i=0;$i -lt $lines.Count;$i++){Assert ($lines[$i] -eq $expectedLines[$i]) ('Wrong preview paragraph: '+$label+' '+$i)}
     Assert ($win.FindName('SaveButton').IsEnabled -eq $c.HasActions) ('Wrong Save availability: '+$label)
@@ -84,7 +88,7 @@ try {
     foreach($custom in @($false,$true)) {
         foreach($performance in @($false,$true)) {
             $label=$(if($performance){'performance'}else{'autonomy'})+'-'+$(if($custom){'custom'}else{'builtin'})
-            $win.FindName('EnergySaverSwitch').IsChecked=$false;$win.FindName('FanStandard').IsChecked=$true
+            $win.FindName('EnergySaverSwitch').IsChecked=$false;Set-FanMode 3
             $win.FindName('Balanced').IsChecked=$true;$win.FindName('BrightnessToggleButton').IsChecked=$true;$win.FindName('BrightnessSlider').Value=22
             foreach($field in $additional){$win.FindName($field+'Switch').IsChecked=$true};$win.FindName('TaskbarRepairSwitch').IsChecked=$null
             foreach($display in @($win.FindName('DisplaySelector').Items)){
@@ -105,17 +109,17 @@ try {
             $loaded=[PeConfiguration]::Read($path);Assert-Configuration $loaded $ui.Configuration ($label+' exported resource')
             # Exported real presets are inspected as resources, never executed.
             if($win.FindName('Balanced').IsEnabled){$win.FindName('Balanced').IsChecked=$true}
-            if($win.FindName('FanWhisper').IsEnabled){$win.FindName('FanWhisper').IsChecked=$true}
+            if($win.FindName('FanModeSelector').IsEnabled){Set-FanMode 1}
             $win.FindName('BrightnessToggleButton').IsChecked=$false;$edited=$ui.Configuration
             Assert ($edited.PowerMode -eq $(if($win.FindName('Balanced').IsEnabled){2}else{0})) ('Power mode cannot be edited: '+$label)
-            Assert ($edited.FanProfile -eq $(if($win.FindName('FanWhisper').IsEnabled){1}else{0})) ('Fan mode cannot be edited: '+$label)
+            Assert ($edited.FanProfile -eq $(if($win.FindName('FanModeSelector').IsEnabled){1}else{0})) ('Fan mode cannot be edited: '+$label)
             Assert (-not $win.FindName('BestPerformance').IsChecked -and -not $win.FindName('Efficiency').IsChecked) ('Manual power conflict failed: '+$label)
             if($edited.Displays.Count -gt 0){
-                $paragraphs=@($win.FindName('ScriptPreview').Text -split '\r?\n\r?\n');$index=-1
+                $paragraphs=@($ui.PreviewText -split '\r?\n\r?\n');$index=-1
                 for($i=0;$i -lt $paragraphs.Count;$i++){if($paragraphs[$i] -match '^Экран \d+ - '){$index=$i;break}}
                 Assert ($index -ge 0) ('Display action absent from preview: '+$label)
                 $beforePreview=$paragraphs.Count;$ui.RemovePreviewAction($index)
-                Assert (@($win.FindName('ScriptPreview').Text -split '\r?\n\r?\n').Count -eq $beforePreview-1) ('Removing a preview action changed more than one action: '+$label)
+                Assert (@($ui.PreviewText -split '\r?\n\r?\n').Count -eq $beforePreview-1) ('Removing a preview action changed more than one action: '+$label)
             }
             $ui.ResetScript();Assert (-not $ui.Configuration.HasActions -and -not $win.FindName('SaveButton').IsEnabled) ('Reset did not clear preset: '+$label)
             Assert ([Convert]::ToBase64String($ui.IconChoice.GetBytes()) -eq $iconHash) ('Reset changed icon: '+$label)

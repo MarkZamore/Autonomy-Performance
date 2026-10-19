@@ -12,10 +12,10 @@ $section.IsExpanded=$true
 if($rates.Items.Count -gt 1){$rates.SelectedIndex=1}
 Assert ($selector.IsEnabled -and $rates.IsEnabled -and $win.FindName('SaveButton').IsEnabled) 'Display controls unavailable'
 $selected=$selector.SelectedItem;$rate=$rates.SelectedItem.Rate
-Assert ($preview.Text.Contains($selected.Label) -and $preview.Text.Contains($rate.ToString()+' Гц')) 'Display not in preview'
-if($selector.Items.Count -gt 1){$selector.SelectedIndex=1;if($rates.Items.Count -gt 1){$rates.SelectedIndex=1};Assert ($ui.Configuration.DisplayId -eq $selector.SelectedItem.MonitorId) 'Wrong selected display id';Assert ($preview.Text.Contains($selector.SelectedItem.Label)) 'Monitor change not reflected'}
+Assert ($ui.PreviewText.Contains($selected.Label) -and $ui.PreviewText.Contains($rate.ToString()+' Гц')) 'Display not in preview'
+if($selector.Items.Count -gt 1){$selector.SelectedIndex=1;if($rates.Items.Count -gt 1){$rates.SelectedIndex=1};Assert ($ui.Configuration.DisplayId -eq $selector.SelectedItem.MonitorId) 'Wrong selected display id';Assert ($ui.PreviewText.Contains($selector.SelectedItem.Label)) 'Monitor change not reflected'}
 $rates.SelectedIndex=0;Assert ($ui.Configuration.RefreshRate -eq $rates.SelectedItem.Rate) 'Rate selection not reflected'
-Assert (-not $ui.Configuration.HasActions -and $preview.Text -eq 'Действия не выбраны.') 'Unchanged refresh rate remains in config'
+Assert (-not $ui.Configuration.HasActions -and $ui.PreviewText -eq '') 'Unchanged refresh rate remains in config'
 $selector.SelectedIndex=0
 # Prefer 60 Hz for a real rate transition, supported by this monitor.
 foreach($choice in $rates.Items){if($choice.Rate -eq 60){$rates.SelectedItem=$choice;break}}

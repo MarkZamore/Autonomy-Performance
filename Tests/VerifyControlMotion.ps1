@@ -29,7 +29,7 @@ try{
         Assert ($thumb.RenderTransform.HasAnimatedProperties -and $track.Background.HasAnimatedProperties) 'Movement or color transition is missing'
     }
     Frame 180
-    $blue=$app.Resources['Brush.CheckFill'].Color;$dark=$app.Resources['Brush.CheckMark'].Color
+    $blue=$app.Resources['Brush.CheckFill'].Color;$dark=$app.Resources['Brush.ControlDark'].Color
     Assert ([Math]::Abs($thumb.RenderTransform.X-46) -lt 0.01 -and $track.Background.Color -eq $blue -and $thumb.Fill.Color -eq $dark) 'Enabled colors/position incorrect'
     $switch.IsChecked=$false
     Frame 35
@@ -52,7 +52,7 @@ try{
     $brightness.IsChecked=$false;Frame 180
     Assert ([Math]::Abs($brightnessThumb.RenderTransform.X) -lt 0.01 -and $brightnessTrack.Background.Color -eq [Windows.Media.Color]::FromArgb(77,97,113,128) -and -not $win.FindName('BrightnessSlider').IsEnabled) 'Disabling brightness did not restore left neutral state'
     $win.FindName('EnergySaverSwitch').IsChecked=$true;$switch.IsChecked=$false;Frame 180
-    $preview=$win.FindName('ScriptPreview').Text
+    $preview=$ui.PreviewText
     Assert ($preview -notmatch '(?m)^\d+\. ' -and $preview.Contains([Environment]::NewLine+[Environment]::NewLine)) 'Preview is numbered or has no spacing between actions'
     Assert ([double]::IsNaN([Windows.Controls.TextBlock]::GetLineHeight($win.FindName('ScriptPreview')))) 'Preview has forced line spacing'
     'PASS: '+$script:assertions+' assertions; loaded WPF transitions, intermediate frames, rapid reversal, swapped colors, binary brightness movement/palette, unnumbered spaced preview. No system settings applied.'

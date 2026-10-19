@@ -33,7 +33,10 @@
     <DrawingImage x:Key="Icon.ArmouryCrate"><DrawingImage.Drawing><DrawingGroup>
         <GeometryDrawing Brush="Transparent" Geometry="M0,0 H20 V20 H0 Z"/>
         <DrawingGroup Transform="0.4166666666666667,0,0,0.4166666666666667,0,0">
-            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M24,7.4249,4.5,40.5751l9.75-3.9L24,19.1246l9.75,17.5505,9.75,3.9Z"/>
-            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M24,26.9248l-5.85,9.75,5.85-1.95,5.85,1.95Z"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M24 3 L42 13.5 L42 34.5 L24 45 L6 34.5 L6 13.5 Z"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M10 31.5 L10 15.8 L24 7.8 L26.7 12.5 Z"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M24 7.8 L38 15.8 L35.2 28.8"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M10 31.5 L14.8 26.8 L28.8 31.5 L16.2 35 Z"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M26.7 12.5 L38 34.8 L30.8 39 L30.8 27.8"/>
         </DrawingGroup></DrawingGroup></DrawingImage.Drawing></DrawingImage>
 </ResourceDictionary>

@@ -1,15 +1,22 @@
-Wallpaper Engine and ARMOURY CRATE outline icons
+Wallpaper Engine outline icon
 Copyright: Arcticons Team and contributors (Donnnno/Arcticons).
 Source: https://github.com/Arcticons-Team/Arcticons
 Pinned revision: 0ad65f34bf60959a3cc97e31a0f033c1084cea51
-Original files: icons/white/wallpaperengine.svg, icons/white/armoury_crate.svg
+Original file: icons/white/wallpaperengine.svg
 License: Creative Commons Attribution-ShareAlike 4.0 International.
 https://creativecommons.org/licenses/by-sa/4.0/
 The complete license is included in CC-BY-SA-4.0.txt and embedded in the constructor.
 Changes: SVG paths converted to WPF DrawingImage; normalized to a 20 DIP canvas;
-stroke weight adjusted to 1.3 DIP. Adapted icons remain under CC BY-SA 4.0.
-Names and trademarks belong to their respective owners. These icons identify
-third-party applications; no endorsement or affiliation is implied.
+stroke weight adjusted to 1.3 DIP. This adapted icon remains under CC BY-SA 4.0.
+
+Armoury Crate outline icon
+Manually traced from the PNG supplied by the user on 2026-10-19.
+Source reference: codex-clipboard-7b7a5ec8-ea33-4383-9af6-23d8f062cfdd.png.
+Logo and trademark: ASUSTeK COMPUTER INC.
+Changes: background omitted; hexagonal outline, interior facets and negative
+space redrawn as white SVG contours on a 48 by 48 canvas; no embedded raster.
+The contours are converted to an embedded WPF DrawingImage at build time,
+normalized to 20 DIP with a 1.3 DIP stroke matching the other category icons. This trace does not use the Arcticons armoury_crate.svg paths.
 
 ScreenXpert contour
 Manually traced from the official ASUSTeK COMPUTER INC. Microsoft Store logo:
@@ -18,3 +25,6 @@ Reference PNG:
 https://store-images.s-microsoft.com/image/apps.56032.14032635365210999.1f064ff7-5378-41d8-8c16-6efa4e2b048f.81d0bc4a-e865-4452-ba0a-e09add571b6c
 Changes: contour traced from the two ribbons, tile background and colors omitted.
 ScreenXpert logo and trademark belong to ASUSTeK COMPUTER INC.
+
+Names and trademarks belong to their respective owners. These icons identify
+third-party applications; no endorsement or affiliation is implied.

@@ -49,6 +49,9 @@ static class AdaptivePresetTests
         capabilities.Displays.Add(Display(2,3840,2160,1920,1200,false,false,new[]{100,150},Resolution(3840,2160,60,120),Resolution(1920,1080,60,165),Resolution(1920,1200,60,240)));
         capabilities.Displays.Add(Display(1,2880,1800,1920,1080,true,true,new[]{100,150,200},Resolution(2880,1800,60,144),Resolution(1920,1200,60,120),Resolution(1920,1080,60,240)));
         capabilities.Displays.Add(Display(3,2560,1440,2560,1440,false,false,new int[0],Resolution(2560,1440,75,165)));
+        capabilities.Displays[0].RecommendedScale=200;
+        capabilities.Displays[1].RecommendedScale=150;
+        capabilities.Displays[2].RecommendedScale=150;
         JavaScriptSerializer serializer=new JavaScriptSerializer();string before=serializer.Serialize(capabilities);
         foreach(bool performance in new[]{false,true}) {
             ModeConfiguration configuration=PresetBuilder.Build(performance,capabilities);configuration.Validate();
@@ -73,7 +76,7 @@ static class AdaptivePresetTests
             Assert(two.Hdr==0&&three.Hdr==0,"Unsupported HDR must be omitted");
             Assert(one.DynamicRefresh==(performance?1:2)&&ten.DynamicRefresh==(performance?1:2),"Supported DRR action missing");
             Assert(two.DynamicRefresh==0&&three.DynamicRefresh==0,"Unsupported DRR must be omitted");
-            Assert(one.DisplayScale==(performance?200:0)&&ten.DisplayScale==(performance?200:0)&&two.DisplayScale==0&&three.DisplayScale==0,"200% scale must only be selected when Windows offers it");
+            Assert(one.DisplayScale==(performance?150:0)&&ten.DisplayScale==(performance?200:0)&&two.DisplayScale==(performance?150:0)&&three.DisplayScale==0,"Each display must use its own offered recommended scale");
             Unrequested(configuration,performance?"Performance":"Autonomy");
             Assert(serializer.Serialize(capabilities)==before,"Building a preset mutated capability data");
             Assert(Same(configuration,PresetBuilder.Build(performance,capabilities)),"Repeated builds must be deterministic");
@@ -127,9 +130,24 @@ static class AdaptivePresetTests
             }
         }
     }
+    static void RecommendedScales()
+    {
+        PresetDisplayCapabilities capabilities=Display(1,0,0,1920,1080,false,false,new[]{100,125,150,200});
+        foreach(int recommendation in new[]{100,125,150,200}) {
+            capabilities.RecommendedScale=recommendation;
+            Assert(PresetBuilder.BuildDisplay(true,capabilities).DisplayScale==recommendation,"Performance must use the offered recommendation "+recommendation+", not a fixed 200%");
+            Assert(PresetBuilder.BuildDisplay(false,capabilities).DisplayScale==0,"Autonomy must leave scaling unchanged");
+        }
+        foreach(int recommendation in new[]{0,-100,175}) {
+            capabilities.RecommendedScale=recommendation;
+            Assert(PresetBuilder.BuildDisplay(true,capabilities).DisplayScale==0,"Unknown or unavailable recommended scale must not fall back to 200%");
+        }
+        capabilities.RecommendedScale=150;capabilities.Scales=null;
+        Assert(PresetBuilder.BuildDisplay(true,capabilities).DisplayScale==0,"Missing scale capabilities must not create a scale action");
+    }
     static int Run()
     {
-        MainPresets();MissingFeatures();ManyDisplays();
+        MainPresets();MissingFeatures();ManyDisplays();RecommendedScales();
         Console.WriteLine("PASS: "+checks+" synthetic adaptive-preset checks; no settings changed and no exported EXE executed.");return 0;
     }
     static int Main(string[] args)

@@ -6,22 +6,24 @@ public sealed class ConstructorWindow
 {
     public Window Window {get;private set;}
     public readonly IconSelection IconChoice=new IconSelection();
-    readonly CheckBox[] powerChecks,fanChecks,switches;readonly Button save,iconButton;readonly Image currentIcon;readonly Popup popup;readonly UniformGrid icons;readonly TextBlock status;readonly TextBox preview;
-    readonly ToggleButton brightnessToggle;readonly Slider brightnessSlider,nightLightSlider;readonly ComboBox displaySelector,resolutionSelector,refreshSelector,scaleSelector,contentBrightnessSelector;readonly TextBlock displayUnavailable;
+    readonly CheckBox[] powerChecks,switches;readonly Button save,iconButton;readonly Image currentIcon;readonly Popup popup;readonly UniformGrid icons;readonly TextBlock status;readonly ScrollViewer preview;readonly ItemsControl previewItems;readonly TextBlock previewEmpty;
+    readonly ToggleButton brightnessToggle;readonly Slider brightnessSlider,nightLightSlider;readonly ComboBox fanSelector,displaySelector,resolutionSelector,refreshSelector,scaleSelector,contentBrightnessSelector;readonly TextBlock displayUnavailable;
     static readonly string[] switchNames={"EnergySaverSwitch","DarkThemeSwitch","HdrSwitch","PresenceSleepSwitch","PresenceDimSwitch","AdaptiveBrightnessSwitch","ScreenSaverSwitch","UsbPowerSwitch","WallpaperPlaybackSwitch","WallpaperAudioSwitch","BatteryCareSwitch","WallpaperApplicationSwitch","TaskbarRepairSwitch","NightLightSwitch","DynamicRefreshSwitch","BatteryPercentageSwitch","ClockSecondsSwitch","PresenceWakeSwitch","PresenceOnlookerSwitch"};
     bool updating,updatingDisplays;
     readonly DispatcherTimer displayRefreshTimer;HwndSource displayMessageSource;bool displayRefreshRunning,displayRefreshPending,displayObserverClosed;
     string savedScriptState;
     readonly Dictionary<string,DisplayModeConfiguration> displaySettings=new Dictionary<string,DisplayModeConfiguration>(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string,DisplayInfo> knownDisplays=new Dictionary<string,DisplayInfo>(StringComparer.OrdinalIgnoreCase);
-    string editingDisplayId;
+    string editingDisplayId,brightnessDisplayId;
     readonly List<PreviewAction> previewActions=new List<PreviewAction>();
-    sealed class PreviewAction {public string Key,DisplayId,Text;public int Start,Length;}
+    sealed class PreviewAction {public string Key,DisplayId,Text;}
     Point previewDown;int previewDownAction=-1;bool previewDragged,previewCanRemove;
+    public string PreviewText {get;private set;}
     readonly Dictionary<Expander,int> categoryAnimationVersions=new Dictionary<Expander,int>();
     public sealed class RefreshChoice {public uint Rate;public override string ToString(){return Rate==0?"Не менять частоту обновления":Rate+" Гц";}}
     public sealed class ScaleChoice {public int Percent;public bool Recommended;public override string ToString(){return Percent==0?"Не менять масштаб":Percent+"%"+(Recommended?" (рекомендуется)":"");}}
     public sealed class ContentChoice {public int Value;public string Label;public override string ToString(){return Label;}}
+    public sealed class FanModeChoice {public int Profile;public string Label;public override string ToString(){return Label;}}
     CheckBox Action(string name){return (CheckBox)Window.FindName(name);}
     static readonly string[] iconNames={"Autonomy&Performance","Батарея","Экономия энергии","Производительность","Скорость","Своя иконка ICO"};
     public ConstructorWindow()
@@ -32,19 +34,22 @@ public sealed class ConstructorWindow
         using(Stream content=Assembly.GetExecutingAssembly().GetManifestResourceStream("Window"))Window=(Window)XamlReader.Load(content);
         Window.Icon=ImageSource(EmbeddedAssets.Read("Icon0"));
         powerChecks=WireExclusiveChoices(new[]{"Efficiency","Balanced","BestPerformance"});
-        fanChecks=WireExclusiveChoices(new[]{"FanWhisper","FanPerformance","FanStandard"});
+        fanSelector=(ComboBox)Window.FindName("FanModeSelector");
+        fanSelector.ItemsSource=new[]{new FanModeChoice{Profile=0,Label="Не менять режим вентилятора"},new FanModeChoice{Profile=1,Label="Тихий режим"},new FanModeChoice{Profile=2,Label="Режим высокой производительности"},new FanModeChoice{Profile=3,Label="Стандартный режим"}};fanSelector.SelectedIndex=0;
+        fanSelector.SelectionChanged+=delegate{SelectionChanged(null,null);};
         switches=new CheckBox[switchNames.Length];for(int i=0;i<switchNames.Length;i++){
             switches[i]=(CheckBox)Window.FindName(switchNames[i]);switches[i].Checked+=SelectionChanged;switches[i].Unchecked+=SelectionChanged;switches[i].Indeterminate+=SelectionChanged;
             switches[i].PreviewMouseLeftButtonDown+=SwitchPointerDown;switches[i].PreviewKeyDown+=SwitchKeyDown;
             ControlMotion.AttachSwitch(switches[i]);
-            System.Windows.Automation.AutomationProperties.SetHelpText(switches[i],"Нажатие: не менять - включить - выключить - не менять. Стрелки влево и вправо выбирают состояние; стрелка вниз - не менять.");
-            if(switches[i].Name=="TaskbarRepairSwitch")System.Windows.Automation.AutomationProperties.SetHelpText(switches[i],"Слева - не менять, в центре - режим 1, справа - режим 2.");
+            System.Windows.Automation.AutomationProperties.SetHelpText(switches[i],"На тумблере: слева - выключить, по центру - не менять, справа - включить. Пробел переключает состояние; стрелки влево и вправо выбирают состояние, стрелка вниз - не менять.");
+            if(switches[i].Name=="TaskbarRepairSwitch")System.Windows.Automation.AutomationProperties.SetHelpText(switches[i],"На тумблере: слева - не менять, в центре - режим 1, справа - режим 2. Пробел переключает состояние.");
         }
-        save=(Button)Window.FindName("SaveButton");iconButton=(Button)Window.FindName("IconButton");currentIcon=(Image)Window.FindName("CurrentIcon");popup=(Popup)Window.FindName("IconPopup");icons=(UniformGrid)Window.FindName("IconGrid");status=(TextBlock)Window.FindName("Status");preview=(TextBox)Window.FindName("ScriptPreview");
+        save=(Button)Window.FindName("SaveButton");iconButton=(Button)Window.FindName("IconButton");currentIcon=(Image)Window.FindName("CurrentIcon");popup=(Popup)Window.FindName("IconPopup");icons=(UniformGrid)Window.FindName("IconGrid");status=(TextBlock)Window.FindName("Status");preview=(ScrollViewer)Window.FindName("ScriptPreview");previewItems=(ItemsControl)Window.FindName("PreviewActions");previewEmpty=(TextBlock)Window.FindName("PreviewEmpty");
         save.Click+=SaveClicked;iconButton.Click+=delegate{RefreshIcons();popup.IsOpen=!popup.IsOpen;};
         ((Button)Window.FindName("ResetScriptButton")).Click+=delegate{ResetScript();};
         preview.PreviewMouseLeftButtonDown+=PreviewPointerDown;preview.PreviewMouseMove+=PreviewPointerMove;preview.PreviewMouseLeftButtonUp+=PreviewPointerUp;
-        preview.PreviewKeyDown+=delegate(object sender,KeyEventArgs e){if(e.Key==Key.Delete&&preview.SelectionLength==0){int index=PreviewIndexAt(preview.CaretIndex);if(index>=0){RemovePreviewAction(index);e.Handled=true;}}};
+        preview.PreviewKeyDown+=PreviewKeyDown;
+        preview.CommandBindings.Add(new CommandBinding(ApplicationCommands.Copy,delegate{if(previewActions.Count>0)try{Clipboard.SetText(PreviewText);}catch(ExternalException){}},delegate(object sender,CanExecuteRoutedEventArgs e){e.CanExecute=previewActions.Count>0;e.Handled=true;}));
         popup.Opened+=delegate{int selected=IconChoice.CustomPath==null?IconChoice.BuiltInIndex:5;((Button)icons.Children[selected]).Focus();};
         icons.PreviewKeyDown+=PopupKeyDown;
         Window.PreviewKeyDown+=delegate(object sender,KeyEventArgs e){if(e.Key==Key.Escape&&popup.IsOpen){popup.IsOpen=false;iconButton.Focus();e.Handled=true;}};
@@ -54,9 +59,12 @@ public sealed class ConstructorWindow
         displaySelector=(ComboBox)Window.FindName("DisplaySelector");refreshSelector=(ComboBox)Window.FindName("RefreshSelector");displayUnavailable=(TextBlock)Window.FindName("DisplayUnavailable");
         resolutionSelector=(ComboBox)Window.FindName("ResolutionSelector");
         scaleSelector=(ComboBox)Window.FindName("ScaleSelector");contentBrightnessSelector=(ComboBox)Window.FindName("ContentBrightnessSelector");
+        foreach(ComboBox choice in new[]{fanSelector,displaySelector,resolutionSelector,refreshSelector,scaleSelector,contentBrightnessSelector})ControlMotion.AttachComboBox(choice);
         contentBrightnessSelector.ItemsSource=new[]{new ContentChoice{Value=0,Label="Не менять яркость с учётом содержимого"},new ContentChoice{Value=1,Label="Всегда"},new ContentChoice{Value=3,Label="Только при питании от батареи"}};contentBrightnessSelector.SelectedIndex=0;
         nightLightSlider=(Slider)Window.FindName("NightLightSlider");nightLightSlider.ValueChanged+=delegate{SelectionChanged(null,null);};
         brightnessToggle=(ToggleButton)Window.FindName("BrightnessToggleButton");brightnessSlider=(Slider)Window.FindName("BrightnessSlider");
+        foreach(Slider slider in new[]{brightnessSlider,nightLightSlider}){slider.MouseLeftButtonDown+=SliderPointerHandled;slider.MouseLeftButtonUp+=SliderPointerHandled;}
+        System.Windows.Automation.AutomationProperties.SetHelpText(brightnessToggle,"На тумблере: слева - не менять яркость, справа - изменить. Пробел переключает состояние.");
         ControlMotion.AttachSwitch((CheckBox)brightnessToggle);
         brightnessToggle.PreviewMouseLeftButtonDown+=SwitchPointerDown;brightnessToggle.PreviewKeyDown+=SwitchKeyDown;
         brightnessToggle.Checked+=SelectionChanged;brightnessToggle.Unchecked+=SelectionChanged;brightnessSlider.ValueChanged+=delegate{SelectionChanged(null,null);};
@@ -70,6 +78,7 @@ public sealed class ConstructorWindow
         ((Button)Window.FindName("PresetAutonomyButton")).Click+=delegate{ApplyPreset(false);};
         foreach(string categoryName in new[]{"PerformanceSection","WallpaperSection","ArmourySection","PowerSection","DisplaySection","AdditionalSection"}){
             Expander category=(Expander)Window.FindName(categoryName);
+            ControlMotion.AttachCategory(category);
             category.Expanded+=CategoryStateChanged;category.Collapsed+=CategoryStateChanged;
             category.IsEnabledChanged+=delegate(object sender,DependencyPropertyChangedEventArgs e){Expander section=(Expander)sender;if(!section.IsEnabled)section.IsExpanded=false;};
         }
@@ -118,7 +127,7 @@ public sealed class ConstructorWindow
             foreach(DisplayModeConfiguration action in displaySettings.Values)if(action.HasActions)displays.Add(CloneDisplay(action));
             displays.Sort(delegate(DisplayModeConfiguration a,DisplayModeConfiguration b){int order=DisplayNumber(a.DisplayId).CompareTo(DisplayNumber(b.DisplayId));return order!=0?order:StringComparer.OrdinalIgnoreCase.Compare(a.DisplayId,b.DisplayId);});
             return new ModeConfiguration{Displays=displays.ToArray(),
-                EnergySaver=SwitchValue(Action("EnergySaverSwitch")),FanProfile=SelectedMode(fanChecks),
+                EnergySaver=SwitchValue(Action("EnergySaverSwitch")),FanProfile=SelectedFanProfile(),
                 PowerMode=SelectedMode(powerChecks),
                 DarkTheme=SwitchValue(Action("DarkThemeSwitch")),SleepTimeout=0,ScreenTimeout=0,
                 PresenceSleep=SwitchValue(Action("PresenceSleepSwitch")),PresenceDim=SwitchValue(Action("PresenceDimSwitch")),
@@ -130,11 +139,43 @@ public sealed class ConstructorWindow
     int DisplayNumber(string id){DisplayInfo display;if(knownDisplays.TryGetValue(id,out display)){string name=display.DeviceName;int start=name.LastIndexOf("DISPLAY",StringComparison.OrdinalIgnoreCase),number;if(start>=0&&Int32.TryParse(name.Substring(start+7),out number))return number;}return Int32.MaxValue;}
     string ScreenName(string id){int number=DisplayNumber(id);return number==Int32.MaxValue?"Отключённый экран":"Экран "+number;}
     void CaptureDisplayEditor(){
-        if(updating||updatingDisplays||String.IsNullOrEmpty(editingDisplayId)||displaySelector==null)return;
+        if(updating||updatingDisplays||displaySelector==null)return;
+        CaptureBrightnessEditor();
+        if(String.IsNullOrEmpty(editingDisplayId))return;
         DisplayInfo display=displaySelector.SelectedItem as DisplayInfo;if(display==null||!String.Equals(display.MonitorId,editingDisplayId,StringComparison.OrdinalIgnoreCase))return;
         DisplayResolution resolution=resolutionSelector.SelectedItem as DisplayResolution;RefreshChoice rate=refreshSelector.SelectedItem as RefreshChoice;ScaleChoice scale=scaleSelector.SelectedItem as ScaleChoice;ContentChoice content=contentBrightnessSelector.SelectedItem as ContentChoice;
-        DisplayModeConfiguration action=new DisplayModeConfiguration{DisplayId=editingDisplayId,DisplayWidth=resolution==null?0:resolution.Width,DisplayHeight=resolution==null?0:resolution.Height,RefreshRate=rate==null?0:rate.Rate,DisplayScale=scale==null?0:scale.Percent,Hdr=SwitchValue(Action("HdrSwitch")),DynamicRefresh=SwitchValue(Action("DynamicRefreshSwitch")),ContentBrightness=contentBrightnessSelector.IsEnabled&&content!=null?content.Value:0,Brightness=brightnessToggle.IsEnabled&&brightnessToggle.IsChecked==true?(int)Math.Round(brightnessSlider.Value):-1};
+        DisplayModeConfiguration saved;
+        DisplayModeConfiguration action=new DisplayModeConfiguration{DisplayId=editingDisplayId,DisplayWidth=resolution==null?0:resolution.Width,DisplayHeight=resolution==null?0:resolution.Height,RefreshRate=rate==null?0:rate.Rate,DisplayScale=scale==null?0:scale.Percent,Hdr=SwitchValue(Action("HdrSwitch")),DynamicRefresh=SwitchValue(Action("DynamicRefreshSwitch")),ContentBrightness=contentBrightnessSelector.IsEnabled&&content!=null?content.Value:0,Brightness=displaySettings.TryGetValue(editingDisplayId,out saved)?saved.Brightness:-1};
         if(action.HasActions)displaySettings[editingDisplayId]=action;else displaySettings.Remove(editingDisplayId);
+    }
+    void CaptureBrightnessEditor(){
+        if(String.IsNullOrEmpty(brightnessDisplayId)||!brightnessToggle.IsEnabled)return;
+        DisplayModeConfiguration saved;
+        DisplayModeConfiguration action=displaySettings.TryGetValue(brightnessDisplayId,out saved)?CloneDisplay(saved):new DisplayModeConfiguration{DisplayId=brightnessDisplayId};
+        action.Brightness=brightnessToggle.IsChecked==true?(int)Math.Round(brightnessSlider.Value):-1;
+        if(action.HasActions)displaySettings[brightnessDisplayId]=action;else displaySettings.Remove(brightnessDisplayId);
+    }
+    bool BrightnessTargetAvailable(string id){
+        if(String.IsNullOrEmpty(id))return false;
+        foreach(DisplayInfo display in displaySelector.Items)if(String.Equals(display.MonitorId,id,StringComparison.OrdinalIgnoreCase))return DisplayBrightnessControl.Available(id);
+        return false;
+    }
+    string ResolveBrightnessDisplayId(){
+        DisplayModeConfiguration action;
+        // A chosen action keeps its exact endpoint, including while it is disconnected.
+        if(!String.IsNullOrEmpty(brightnessDisplayId)&&displaySettings.TryGetValue(brightnessDisplayId,out action)&&action.Brightness>=0)return brightnessDisplayId;
+        if(BrightnessTargetAvailable(brightnessDisplayId))return brightnessDisplayId;
+        string selected=null;
+        foreach(DisplayModeConfiguration saved in displaySettings.Values)if(saved.Brightness>=0&&(selected==null||CompareDisplayIds(saved.DisplayId,selected)<0))selected=saved.DisplayId;
+        if(selected!=null)return selected;
+        foreach(DisplayInfo display in displaySelector.Items)if(DisplayBrightnessControl.Available(display.MonitorId)&&(selected==null||CompareDisplayIds(display.MonitorId,selected)<0))selected=display.MonitorId;
+        return selected;
+    }
+    int CompareDisplayIds(string left,string right){int order=DisplayNumber(left).CompareTo(DisplayNumber(right));return order!=0?order:StringComparer.OrdinalIgnoreCase.Compare(left,right);}
+    void LoadBrightnessEditor(){
+        brightnessDisplayId=ResolveBrightnessDisplayId();DisplayModeConfiguration action;
+        int percent=!String.IsNullOrEmpty(brightnessDisplayId)&&displaySettings.TryGetValue(brightnessDisplayId,out action)?action.Brightness:-1;
+        brightnessToggle.IsChecked=percent>=0;brightnessSlider.Value=percent>=0?percent:100;
     }
     static int SwitchValue(CheckBox control){return !control.IsEnabled?0:control.IsChecked.HasValue?(control.IsChecked.Value?1:2):0;}
     void SetAvailable(string name,bool available){CheckBox control=Action(name);control.IsEnabled=available;if(!available)control.IsChecked=null;}
@@ -143,7 +184,8 @@ public sealed class ConstructorWindow
     {
         bool previous=updating;updating=true;
         try{
-            SetProgramCategoryAvailable("PerformanceSection",screenXpert,new[]{"FanWhisper","FanPerformance","FanStandard","BatteryCareSwitch"});
+            SetProgramCategoryAvailable("PerformanceSection",screenXpert,new[]{"BatteryCareSwitch"});
+            fanSelector.IsEnabled=screenXpert;if(!screenXpert)SetFanProfile(0);
             SetProgramCategoryAvailable("WallpaperSection",wallpaperEngine,new[]{"WallpaperPlaybackSwitch","WallpaperAudioSwitch","WallpaperApplicationSwitch"});
             SetProgramCategoryAvailable("ArmourySection",armouryCrate,new string[0]);
         }finally{updating=previous;}
@@ -158,6 +200,8 @@ public sealed class ConstructorWindow
     void RefreshHardware(){bool previous=updating;updating=true;try{SetAvailable("PresenceWakeSwitch",SensorCapabilities.HasPresence(2));SetAvailable("PresenceOnlookerSwitch",SensorCapabilities.HasPresence(3));SetAvailable("PresenceSleepSwitch",SensorCapabilities.HasPresence(false));SetAvailable("PresenceDimSwitch",SensorCapabilities.HasPresence(true));SetAvailable("AdaptiveBrightnessSwitch",SensorCapabilities.HasAmbientLight()&&SensorCapabilities.HasBrightness());SetAvailable("NightLightSwitch",NightLightControl.Available());SetAvailable("BatteryPercentageSwitch",SensorCapabilities.HasBattery());}finally{updating=previous;}SelectionChanged(null,null);}
     CheckBox[] WireExclusiveChoices(string[] names){CheckBox[] result=new CheckBox[names.Length];for(int i=0;i<names.Length;i++){result[i]=(CheckBox)Window.FindName(names[i]);result[i].Checked+=ExclusiveSelectionChanged;result[i].Unchecked+=ExclusiveSelectionChanged;}return result;}
     static int SelectedMode(CheckBox[] choices){for(int i=0;i<choices.Length;i++)if(choices[i].IsEnabled&&choices[i].IsChecked==true)return i+1;return 0;}
+    int SelectedFanProfile(){FanModeChoice choice=fanSelector.SelectedItem as FanModeChoice;return fanSelector.IsEnabled&&choice!=null?choice.Profile:0;}
+    void SetFanProfile(int profile){foreach(FanModeChoice choice in fanSelector.Items)if(choice.Profile==profile){fanSelector.SelectedItem=choice;return;}fanSelector.SelectedIndex=0;}
     static void CycleSwitch(CheckBox control)
     {
         if(!control.IsThreeState)control.IsChecked=control.IsChecked!=true;
@@ -167,21 +211,24 @@ public sealed class ConstructorWindow
     void SwitchPointerDown(object sender,MouseButtonEventArgs e)
     {
         CheckBox control=(CheckBox)sender;if(!control.IsEnabled)return;
-        FrameworkElement track=control.Template.FindName("SwitchTrack",control) as FrameworkElement;bool trackHit=false;
+        FrameworkElement track=control.Template.FindName("SwitchTrack",control) as FrameworkElement;object thumb=control.Template.FindName("SwitchThumb",control);bool trackHit=false,thumbHit=false;
         // Sliders handle their own pointer input, including clicks on the track and thumb.
         for(DependencyObject source=e.OriginalSource as DependencyObject;source!=null&&source!=control;){
             if(source is Slider)return;
             if(source==track)trackHit=true;
+            if(source==thumb)thumbHit=true;
             FrameworkContentElement content=source as FrameworkContentElement;
             source=source is Visual?VisualTreeHelper.GetParent(source):content!=null?content.Parent:null;
         }
         Point p=track==null?new Point(-1,-1):e.GetPosition(track);
-        control.Focus();
-        if(!trackHit||track==null||p.X<0||p.X>track.ActualWidth||p.Y<0||p.Y>track.ActualHeight)CycleSwitch(control);
-        else control.IsChecked=SwitchPosition(control.IsThreeState,p.X/track.ActualWidth);
         e.Handled=true;
+        if(!trackHit||track==null||track.ActualWidth<=0||p.X<0||p.X>track.ActualWidth||p.Y<0||p.Y>track.ActualHeight)return;
+        control.Focus();SelectSwitchPosition(control,p.X/track.ActualWidth,thumbHit);
     }
+    static void SelectSwitchPosition(CheckBox control,double position,bool thumbHit){bool? selected=SwitchPosition(control.IsThreeState,position);if(thumbHit||selected==control.IsChecked)CycleSwitch(control);else control.IsChecked=selected;}
     static bool? SwitchPosition(bool threeState,double position){return !threeState?(bool?)(position>=0.5):position<1.0/3?false:position>2.0/3?(bool?)true:null;}
+    // Let the slider and its children handle input before stopping it at the enclosing switch.
+    static void SliderPointerHandled(object sender,MouseButtonEventArgs e){e.Handled=true;}
     void SwitchKeyDown(object sender,KeyEventArgs e)
     {
         CheckBox control=(CheckBox)sender;
@@ -214,7 +261,7 @@ public sealed class ConstructorWindow
         try{
             foreach(CheckBox check in switches)check.IsChecked=check.Name=="TaskbarRepairSwitch"?(bool?)false:null;
             for(int i=0;i<powerChecks.Length;i++)powerChecks[i].IsChecked=preset.PowerMode==i+1;
-            for(int i=0;i<fanChecks.Length;i++)fanChecks[i].IsChecked=preset.FanProfile==i+1;
+            SetFanProfile(preset.FanProfile);
             SetPresetSwitch("EnergySaverSwitch",preset.EnergySaver);
             SetPresetSwitch("DarkThemeSwitch",preset.DarkTheme);
             SetPresetSwitch("WallpaperPlaybackSwitch",preset.WallpaperPlayback);
@@ -236,14 +283,14 @@ public sealed class ConstructorWindow
             PowerMode=system.PowerMode&&powerChecks[performance?2:0].IsEnabled,
             DarkTheme=system.DarkTheme&&Action("DarkThemeSwitch").IsEnabled,
             TaskbarRepair=system.TaskbarRepair&&Action("TaskbarRepairSwitch").IsEnabled,
-            FanProfile=system.FanProfile&&fanChecks[performance?1:0].IsEnabled,
+            FanProfile=system.FanProfile&&fanSelector.IsEnabled,
             WallpaperPlayback=Action("WallpaperPlaybackSwitch").IsEnabled,
             WallpaperAudio=Action("WallpaperAudioSwitch").IsEnabled,
             WallpaperApplication=Action("WallpaperApplicationSwitch").IsEnabled
         };
         foreach(DisplayInfo display in displaySelector.Items){
             bool enabled;
-            PresetDisplayCapabilities target=new PresetDisplayCapabilities{Display=display,Scales=HdrControl.InspectScales(display.MonitorId),HdrSupported=HdrControl.CanChange(display.MonitorId,performance)};
+            PresetDisplayCapabilities target=new PresetDisplayCapabilities{Display=display,Scales=HdrControl.InspectScales(display.MonitorId),RecommendedScale=HdrControl.InspectRecommendedScale(display.MonitorId),HdrSupported=HdrControl.CanChange(display.MonitorId,performance)};
             DisplayModeConfiguration mode=PresetBuilder.BuildDisplay(performance,target);
             target.DynamicRefreshSupported=performance?HdrControl.InspectDynamic(display.MonitorId,mode.DisplayWidth,mode.DisplayHeight,mode.RefreshRate,out enabled):HasDynamicRefreshCapability(display);
             capabilities.Displays.Add(target);
@@ -259,7 +306,7 @@ public sealed class ConstructorWindow
     }
     public void ResetScript(){
         bool previous=updating,previousDisplays=updatingDisplays;updating=true;updatingDisplays=true;
-        try{foreach(CheckBox check in switches)check.IsChecked=check.Name=="TaskbarRepairSwitch"?(bool?)false:null;foreach(CheckBox check in powerChecks)check.IsChecked=false;foreach(CheckBox check in fanChecks)check.IsChecked=false;displaySettings.Clear();nightLightSlider.Value=50;LoadDisplayEditor();}
+        try{foreach(CheckBox check in switches)check.IsChecked=check.Name=="TaskbarRepairSwitch"?(bool?)false:null;foreach(CheckBox check in powerChecks)check.IsChecked=false;SetFanProfile(0);displaySettings.Clear();nightLightSlider.Value=50;LoadDisplayEditor();}
         finally{updating=previous;updatingDisplays=previousDisplays;}
         SelectionChanged(null,null);
     }
@@ -275,8 +322,7 @@ public sealed class ConstructorWindow
         if(updating)return;updating=true;
         try{
             CheckBox selected=(CheckBox)sender;
-            CheckBox[] choices=Array.IndexOf(powerChecks,selected)>=0?powerChecks:fanChecks;
-            if(selected.IsChecked==true){foreach(CheckBox check in choices)if(check!=selected)check.IsChecked=false;}
+            if(selected.IsChecked==true){foreach(CheckBox check in powerChecks)if(check!=selected)check.IsChecked=false;}
         }finally{updating=false;}
         SelectionChanged(null,null);
     }
@@ -332,10 +378,10 @@ public sealed class ConstructorWindow
             DisplayModeConfiguration saved;DisplayModeConfiguration d=!String.IsNullOrEmpty(editingDisplayId)&&displaySettings.TryGetValue(editingDisplayId,out saved)?CloneDisplay(saved):new DisplayModeConfiguration{DisplayId=editingDisplayId};
             RefreshResolutions();foreach(DisplayResolution choice in resolutionSelector.Items)if(choice.Width==d.DisplayWidth&&choice.Height==d.DisplayHeight)resolutionSelector.SelectedItem=choice;
             RefreshScales();foreach(ScaleChoice choice in scaleSelector.Items)if(choice.Percent==d.DisplayScale)scaleSelector.SelectedItem=choice;
-            RefreshRates();foreach(RefreshChoice choice in refreshSelector.Items)if(choice.Rate==d.RefreshRate)refreshSelector.SelectedItem=choice;
+            RefreshRates();refreshSelector.SelectedIndex=0;foreach(RefreshChoice choice in refreshSelector.Items)if(choice.Rate==d.RefreshRate)refreshSelector.SelectedItem=choice;
             Action("HdrSwitch").IsChecked=CheckedValue(d.Hdr);Action("DynamicRefreshSwitch").IsChecked=CheckedValue(d.DynamicRefresh);
             foreach(ContentChoice choice in contentBrightnessSelector.Items)if(choice.Value==d.ContentBrightness)contentBrightnessSelector.SelectedItem=choice;
-            brightnessToggle.IsChecked=d.Brightness>=0;brightnessSlider.Value=d.Brightness>=0?d.Brightness:100;
+            LoadBrightnessEditor();
             UpdateDisplayAvailability();
         }finally{updating=previous;updatingDisplays=previousDisplays;}
         if(!updating)SelectionChanged(null,null);
@@ -345,17 +391,20 @@ public sealed class ConstructorWindow
     void RefreshResolutions()
     {
         bool previous=updatingDisplays;updatingDisplays=true;
-        try{DisplayInfo display=displaySelector.SelectedItem as DisplayInfo;List<DisplayResolution> list=new List<DisplayResolution>{new DisplayResolution()};if(display!=null)list.AddRange(display.Resolutions);resolutionSelector.ItemsSource=list;resolutionSelector.SelectedIndex=0;}
+        try{DisplayInfo display=displaySelector.SelectedItem as DisplayInfo;List<DisplayResolution> list=display==null?new List<DisplayResolution>():new List<DisplayResolution>(display.Resolutions);list.Sort(delegate(DisplayResolution a,DisplayResolution b){int order=b.Width.CompareTo(a.Width);return order!=0?order:b.Height.CompareTo(a.Height);});list.Insert(0,new DisplayResolution());resolutionSelector.ItemsSource=list;resolutionSelector.SelectedIndex=0;}
         finally{updatingDisplays=previous;}
     }
     void RefreshRates()
     {
+        RefreshChoice selected=refreshSelector.SelectedItem as RefreshChoice;uint selectedRate=selected==null?0:selected.Rate;
         bool previous=updatingDisplays;updatingDisplays=true;
         try{
-            DisplayInfo display=displaySelector.SelectedItem as DisplayInfo;List<RefreshChoice> rates=new List<RefreshChoice>{new RefreshChoice{Rate=0}};
+            DisplayInfo display=displaySelector.SelectedItem as DisplayInfo;List<RefreshChoice> rates=new List<RefreshChoice>();
             DisplayResolution resolution=resolutionSelector.SelectedItem as DisplayResolution;
             if(display!=null)foreach(uint rate in resolution!=null&&resolution.Width!=0?resolution.Rates:display.Rates)rates.Add(new RefreshChoice{Rate=rate});
+            rates.Sort(delegate(RefreshChoice a,RefreshChoice b){return b.Rate.CompareTo(a.Rate);});rates.Insert(0,new RefreshChoice{Rate=0});
             refreshSelector.ItemsSource=rates;refreshSelector.SelectedIndex=0;
+            foreach(RefreshChoice choice in rates)if(choice.Rate==selectedRate){refreshSelector.SelectedItem=choice;break;}
         }finally{updatingDisplays=previous;}
     }
     void DisplaySelectionChanged(object sender,RoutedEventArgs e)
@@ -369,7 +418,7 @@ public sealed class ConstructorWindow
         bool hdr=display!=null&&HdrControl.TryInspect(display.MonitorId,out supported,out enabled)&&supported;
         bool dynamic=HasDynamicRefreshCapability(display);
         bool content=display!=null&&HdrControl.TryInspectContentBrightness(display.MonitorId,out option);
-        bool previous=updating;updating=true;try{Action("HdrSwitch").IsEnabled=hdr;if(!hdr)Action("HdrSwitch").IsChecked=null;Action("DynamicRefreshSwitch").IsEnabled=dynamic;if(!dynamic)Action("DynamicRefreshSwitch").IsChecked=null;contentBrightnessSelector.IsEnabled=content;if(!content)contentBrightnessSelector.SelectedIndex=0;scaleSelector.IsEnabled=scaleSelector.Items.Count>1;brightnessToggle.IsEnabled=display!=null&&DisplayBrightnessControl.Available(display.MonitorId);if(!brightnessToggle.IsEnabled)brightnessToggle.IsChecked=false;}finally{updating=previous;}
+        bool previous=updating;updating=true;try{Action("HdrSwitch").IsEnabled=hdr;if(!hdr)Action("HdrSwitch").IsChecked=null;Action("DynamicRefreshSwitch").IsEnabled=dynamic;if(!dynamic)Action("DynamicRefreshSwitch").IsChecked=null;contentBrightnessSelector.IsEnabled=content;if(!content)contentBrightnessSelector.SelectedIndex=0;scaleSelector.IsEnabled=scaleSelector.Items.Count>1;brightnessToggle.IsEnabled=BrightnessTargetAvailable(brightnessDisplayId);}finally{updating=previous;}
     }
     void UpdatePreview()
     {
@@ -383,7 +432,7 @@ public sealed class ConstructorWindow
             if(d.RefreshRate!=0)AddPreview("RefreshRate",d.DisplayId,screen+"частота обновления "+d.RefreshRate+" Гц");
             if(d.Hdr!=0)AddPreview("Hdr",d.DisplayId,screen+(d.Hdr==1?"включить HDR":"выключить HDR"));
             if(d.DynamicRefresh!=0)AddPreview("DynamicRefresh",d.DisplayId,screen+(d.DynamicRefresh==1?"включить динамическую частоту обновления":"выключить динамическую частоту обновления"));
-            if(d.Brightness>=0)AddPreview("Brightness",d.DisplayId,screen+"яркость "+d.Brightness+"%");
+            if(d.Brightness>=0)AddPreview("Brightness",d.DisplayId,"Яркость "+d.Brightness+"%");
             if(d.ContentBrightness!=0)AddPreview("ContentBrightness",d.DisplayId,screen+"яркость с учётом содержимого - "+(d.ContentBrightness==1?"всегда":d.ContentBrightness==2?"откл.":"только при питании от батареи"));
         }
         PreviewSwitch("NightLightSwitch",c.NightLight,"Включить ночной свет - интенсивность "+c.NightLightStrength+"%","Выключить ночной свет");
@@ -397,28 +446,51 @@ public sealed class ConstructorWindow
         PreviewSwitch("PresenceDimSwitch",c.PresenceDim,"Автоматически уменьшать яркость, когда я отвожу взгляд","Не уменьшать яркость, когда я отвожу взгляд");
         PreviewSwitch("PresenceOnlookerSwitch",c.PresenceOnlooker,"Обнаружить, когда другие люди смотрят на мой экран","Выключить обнаружение других людей, смотрящих на экран");
         PreviewSwitch("ClockSecondsSwitch",c.ClockSeconds,"Показывать секунды в часах на панели задач","Скрыть секунды в часах на панели задач");
-        if(c.TaskbarRepair!=0)AddPreview("TaskbarRepairSwitch",null,"Исправление панели задач - Все панели задач, затем "+(c.TaskbarRepair==1?"Главная панель задач и панель задач, в которой открыто окно":"Панель задач, в которой открыто окно"));
-        PreviewSwitch("BatteryCareSwitch",c.BatteryCare,"Включить режим бережной зарядки","Выключить режим бережной зарядки");
+        if(c.TaskbarRepair!=0)AddPreview("TaskbarRepairSwitch",null,"Исправление панели задач - Режим "+c.TaskbarRepair);
         if(c.FanProfile!=0)AddPreview("FanProfile",null,c.FanProfile==1?"Тихий режим вентилятора":c.FanProfile==2?"Производительный режим вентилятора":"Стандартный режим вентилятора");
+        PreviewSwitch("BatteryCareSwitch",c.BatteryCare,"Включить режим бережной зарядки","Выключить режим бережной зарядки");
+        PreviewSwitch("WallpaperApplicationSwitch",c.WallpaperApplication,"Запустить Wallpaper Engine","Завершить Wallpaper Engine");
         PreviewSwitch("WallpaperPlaybackSwitch",c.WallpaperPlayback,"Продолжить воспроизведение обоев Wallpaper Engine","Поставить обои Wallpaper Engine на паузу");
         PreviewSwitch("WallpaperAudioSwitch",c.WallpaperAudio,"Включить звук обоев Wallpaper Engine","Выключить звук обоев Wallpaper Engine");
-        PreviewSwitch("WallpaperApplicationSwitch",c.WallpaperApplication,"Запустить Wallpaper Engine","Завершить Wallpaper Engine");
         System.Text.StringBuilder text=new System.Text.StringBuilder();
-        foreach(PreviewAction entry in previewActions){if(text.Length>0)text.Append(Environment.NewLine+Environment.NewLine);entry.Start=text.Length;entry.Length=entry.Text.Length;text.Append(entry.Text);}
-        string value=previewActions.Count==0?"Действия не выбраны.":text.ToString();
-        if(preview.Text!=value){double offset=preview.VerticalOffset;int start=preview.SelectionStart,length=preview.SelectionLength;preview.Text=value;start=Math.Min(start,value.Length);preview.Select(start,Math.Min(length,value.Length-start));preview.ScrollToVerticalOffset(offset);}
+        foreach(PreviewAction entry in previewActions){if(text.Length>0)text.Append(Environment.NewLine+Environment.NewLine);text.Append(entry.Text);}
+        string value=text.ToString();
+        if(PreviewText!=value){
+            double offset=preview.VerticalOffset;Button focused=PreviewButton(Keyboard.FocusedElement as DependencyObject);int focusIndex=focused==null?-1:(int)focused.Tag;
+            PreviewText=value;previewItems.Items.Clear();
+            for(int i=0;i<previewActions.Count;i++){
+                int index=i;Button row=new Button{Tag=index,Style=(Style)Window.FindResource("ScriptPreviewAction"),Content=new TextBlock{Text=previewActions[i].Text,TextWrapping=TextWrapping.Wrap,LineHeight=Double.NaN}};
+                System.Windows.Automation.AutomationProperties.SetName(row,previewActions[i].Text);
+                System.Windows.Automation.AutomationProperties.SetHelpText(row,"Нажмите, чтобы отменить это действие.");
+                row.Click+=delegate{RemovePreviewAction(index);};previewItems.Items.Add(row);
+            }
+            previewEmpty.Visibility=previewActions.Count==0?Visibility.Visible:Visibility.Collapsed;
+            previewItems.Visibility=previewActions.Count==0?Visibility.Collapsed:Visibility.Visible;
+            preview.ScrollToVerticalOffset(offset);
+            if(focusIndex>=0&&previewItems.Items.Count>0)((Button)previewItems.Items[Math.Min(focusIndex,previewItems.Items.Count-1)]).Focus();
+        }
         ((Button)Window.FindName("ResetScriptButton")).IsEnabled=c.HasActions;
         UpdateSaveState();
     }
     void AddPreview(string key,string displayId,string text){previewActions.Add(new PreviewAction{Key=key,DisplayId=displayId,Text=text});}
     void PreviewSwitch(string key,int value,string on,string off){if(value!=0)AddPreview(key,null,value==1?on:off);}
-    int PreviewIndexAt(int character){for(int i=0;i<previewActions.Count;i++){PreviewAction entry=previewActions[i];if(character>=entry.Start&&character<entry.Start+entry.Length)return i;}return -1;}
-    void PreviewPointerDown(object sender,MouseButtonEventArgs e){previewDown=e.GetPosition(preview);previewDownAction=PreviewIndexAt(preview.GetCharacterIndexFromPoint(previewDown,false));previewDragged=false;previewCanRemove=e.ClickCount==1&&Keyboard.Modifiers==ModifierKeys.None&&preview.SelectionLength==0;}
-    void PreviewPointerMove(object sender,MouseEventArgs e){if(e.LeftButton==MouseButtonState.Pressed){Point point=e.GetPosition(preview);if(Math.Abs(point.X-previewDown.X)>=SystemParameters.MinimumHorizontalDragDistance||Math.Abs(point.Y-previewDown.Y)>=SystemParameters.MinimumVerticalDragDistance)previewDragged=true;}}
+    Button PreviewButton(DependencyObject source){
+        while(source!=null&&source!=preview){Button row=source as Button;if(row!=null&&row.Tag is int&&previewItems.Items.Contains(row))return row;source=source is Visual?VisualTreeHelper.GetParent(source):LogicalTreeHelper.GetParent(source);}return null;
+    }
+    int PreviewActionAt(Point point){IInputElement hit=preview.InputHitTest(point);Button row=PreviewButton(hit as DependencyObject);return row==null?-1:(int)row.Tag;}
+    void BeginPreviewPointer(int index,Point point,bool canRemove){previewDown=point;previewDownAction=index;previewDragged=false;previewCanRemove=index>=0&&canRemove;}
+    void MovePreviewPointer(Point point){if(Math.Abs(point.X-previewDown.X)>=SystemParameters.MinimumHorizontalDragDistance||Math.Abs(point.Y-previewDown.Y)>=SystemParameters.MinimumVerticalDragDistance)previewDragged=true;}
+    bool CompletePreviewPointer(int index,Point point){MovePreviewPointer(point);bool remove=previewCanRemove&&!previewDragged&&index>=0&&index==previewDownAction;previewCanRemove=false;previewDownAction=-1;return remove;}
+    void PreviewPointerDown(object sender,MouseButtonEventArgs e){Point point=e.GetPosition(preview);BeginPreviewPointer(PreviewActionAt(point),point,e.ClickCount==1&&Keyboard.Modifiers==ModifierKeys.None);}
+    void PreviewPointerMove(object sender,MouseEventArgs e){if(previewDownAction>=0&&e.LeftButton==MouseButtonState.Pressed)MovePreviewPointer(e.GetPosition(preview));}
     void PreviewPointerUp(object sender,MouseButtonEventArgs e){
-        int index=PreviewIndexAt(preview.GetCharacterIndexFromPoint(e.GetPosition(preview),false));
-        bool remove=previewCanRemove&&!previewDragged&&preview.SelectionLength==0&&index>=0&&index==previewDownAction;previewCanRemove=false;
-        if(remove){RemovePreviewAction(index);e.Handled=true;}
+        if(previewDownAction<0)return;Point point=e.GetPosition(preview);int index=PreviewActionAt(point);bool remove=CompletePreviewPointer(index,point);
+        e.Handled=true;Button captured=PreviewButton(Mouse.Captured as DependencyObject);if(captured!=null)captured.ReleaseMouseCapture();
+        if(remove)RemovePreviewAction(index);
+    }
+    void PreviewKeyDown(object sender,KeyEventArgs e){
+        if((Keyboard.Modifiers&ModifierKeys.Control)!=0&&e.Key==Key.A){e.Handled=true;return;}
+        if(e.Key==Key.Delete){Button row=PreviewButton(e.OriginalSource as DependencyObject);if(row!=null){RemovePreviewAction((int)row.Tag);e.Handled=true;}}
     }
     public void RemovePreviewAction(int index){
         if(index<0||index>=previewActions.Count)return;PreviewAction entry=previewActions[index];
@@ -427,9 +499,9 @@ public sealed class ConstructorWindow
             if(entry.DisplayId!=null){DisplayModeConfiguration d;if(displaySettings.TryGetValue(entry.DisplayId,out d)){
                 switch(entry.Key){case "DisplayWidth":d.DisplayWidth=0;d.DisplayHeight=0;break;case "DisplayScale":d.DisplayScale=0;break;case "RefreshRate":d.RefreshRate=0;break;case "Hdr":d.Hdr=0;break;case "DynamicRefresh":d.DynamicRefresh=0;break;case "ContentBrightness":d.ContentBrightness=0;break;case "Brightness":d.Brightness=-1;break;}
                 if(!d.HasActions)displaySettings.Remove(entry.DisplayId);
-            }if(String.Equals(entry.DisplayId,editingDisplayId,StringComparison.OrdinalIgnoreCase))LoadDisplayEditor();}
+            }if(entry.Key=="Brightness"||String.Equals(entry.DisplayId,editingDisplayId,StringComparison.OrdinalIgnoreCase))LoadDisplayEditor();}
             else if(entry.Key=="PowerMode")foreach(CheckBox check in powerChecks)check.IsChecked=false;
-            else if(entry.Key=="FanProfile")foreach(CheckBox check in fanChecks)check.IsChecked=false;
+            else if(entry.Key=="FanProfile")SetFanProfile(0);
             else Action(entry.Key).IsChecked=entry.Key=="TaskbarRepairSwitch"?(bool?)false:null;
         }finally{updating=previous;}
         SelectionChanged(null,null);

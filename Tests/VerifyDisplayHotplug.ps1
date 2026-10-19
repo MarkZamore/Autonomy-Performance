@@ -44,7 +44,7 @@ try{
     Assert ($selector.SelectedItem.MonitorId -eq $second.MonitorId) 'Remaining display was not selected'
     Assert ($window.FindName('RefreshSelector').SelectedItem.Rate -eq 60) 'Editor retained disconnected screen values'
     Assert ((Display-Action $first.MonitorId).RefreshRate -eq 120) 'Disconnect discarded the saved action for that screen'
-    Assert ($window.FindName('ScriptPreview').Text -match 'Экран 1 - частота обновления 120 Гц') 'Disconnected display action disappeared from the preview'
+    Assert ($ui.PreviewText -match 'Экран 1 - частота обновления 120 Гц') 'Disconnected display action disappeared from the preview'
     Apply-Displays (Display-List @($first,$second))
     Assert ($selector.Items.Count -eq 2 -and $selector.SelectedItem.MonitorId -eq $second.MonitorId) 'Reconnection reset an existing selection'
     $selector.SelectedItem=$first

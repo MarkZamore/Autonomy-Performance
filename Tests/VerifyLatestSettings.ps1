@@ -19,7 +19,8 @@ try{
  Assert ($null -eq $win.FindName('AutonomySection')) 'Removed autonomy category remains'
  Assert ($win.FindName('PowerSection').Content.Children[0].Name -eq 'EnergySaverSwitch') 'Saver is not first in Power'
  foreach($name in @('SleepTimeoutSwitch','ScreenTimeoutSwitch','ContentBrightnessSwitch')){Assert ($null -eq $win.FindName($name)) ('Removed/duplicate control remains: '+$name)}
- Assert ($win.FindName('PerformanceSection').Content.Children[0].Name -eq 'BatteryCareSwitch') 'Battery care is not first in ScreenXpert'
+ Assert ($win.FindName('PerformanceSection').Content.Children[0].Name -eq 'FanModeSelector' -and $win.FindName('PerformanceSection').Content.Children[1].Name -eq 'BatteryCareSwitch') 'Fan dropdown is not before battery care in ScreenXpert'
+ Assert ($win.FindName('WallpaperSection').Content.Children[0].Name -eq 'WallpaperApplicationSwitch') 'Wallpaper application control is not first in its category'
  Assert (-not $ui.Configuration.HasActions) 'Initial state has an action'
  Assert ([BatteryHealth]::Format(90500,100000) -eq 'Износ батареи: 90.500 Wh / 100.000 Wh | 9.5%') 'Battery wear formula or formatting is incorrect'
  Assert ([BatteryHealth]::Format(0,100000) -eq 'Износ батареи: нет данных') 'Missing battery report is fabricated'
@@ -40,7 +41,7 @@ try{
  $task.IsChecked=$false
  $night=$win.FindName('NightLightSwitch');$slider=$win.FindName('NightLightSlider')
  foreach($value in @($false,$null,$true)){$night.IsChecked=$value;Assert ($slider.IsEnabled -eq ($value -eq $true)) 'Night slider enablement mismatch'}
- $slider.Value=73;Assert ($ui.Configuration.NightLightStrength -eq 73 -and $win.FindName('ScriptPreview').Text.Contains('73%')) 'Night strength missing in preview'
+ $slider.Value=73;Assert ($ui.Configuration.NightLightStrength -eq 73 -and $ui.PreviewText.Contains('73%')) 'Night strength missing in preview'
  $night.IsChecked=$null
  $display=$win.FindName('DisplaySelector');$resolution=$win.FindName('ResolutionSelector');$rate=$win.FindName('RefreshSelector');$scale=$win.FindName('ScaleSelector');$cabc=$win.FindName('ContentBrightnessSelector')
  Assert ($rate.Items[0].ToString() -eq 'Не менять частоту обновления') 'Wrong neutral refresh caption'
@@ -62,7 +63,8 @@ try{
    $drr=[HdrControl]::InspectDynamic($d.MonitorId,$width,$height,$refresh,[ref]$enabled)
   }
   Assert ($win.FindName('DynamicRefreshSwitch').IsEnabled -eq $drr) 'DRR capability mismatch'
-  Assert ($win.FindName('BrightnessToggleButton').IsEnabled -eq [DisplayBrightnessControl]::Available($d.MonitorId)) 'Brightness capability mismatch'
+  $brightnessTargets=@($display.Items|Where-Object {[DisplayBrightnessControl]::Available($_.MonitorId)})
+  Assert ($win.FindName('BrightnessToggleButton').IsEnabled -eq ($brightnessTargets.Count -gt 0)) 'Brightness capability incorrectly depends on the display selector'
   if($cabc.IsEnabled){foreach($choice in $cabc.Items){$cabc.SelectedItem=$choice;Assert ((Current-DisplayAction).ContentBrightness -eq $choice.Value) 'CABC selection mismatch'}}
   $cabc.SelectedIndex=0
  }

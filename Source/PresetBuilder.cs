@@ -13,6 +13,7 @@ public sealed class PresetDisplayCapabilities
 {
     public DisplayInfo Display;
     public bool HdrSupported, DynamicRefreshSupported;
+    public int RecommendedScale;
     public List<int> Scales = new List<int>();
 }
 
@@ -65,7 +66,7 @@ public static class PresetBuilder
             if (performance) { if (rate >= 2 && rate > action.RefreshRate) action.RefreshRate = rate; }
             else if (rate == 60) action.RefreshRate = rate;
         }
-        if (performance && capabilities.Scales != null && capabilities.Scales.Contains(200)) action.DisplayScale = 200;
+        if (performance && capabilities.RecommendedScale > 0 && capabilities.Scales != null && capabilities.Scales.Contains(capabilities.RecommendedScale)) action.DisplayScale = capabilities.RecommendedScale;
         if (capabilities.HdrSupported) action.Hdr = performance ? 1 : 2;
         if (capabilities.DynamicRefreshSupported) action.DynamicRefresh = performance ? 1 : 2;
         return action;
