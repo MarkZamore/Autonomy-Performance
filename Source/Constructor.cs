@@ -4,8 +4,8 @@ public sealed class ConstructorWindow
 {
     public Window Window {get;private set;}
     public readonly IconSelection IconChoice=new IconSelection();
-    readonly CheckBox[] powerChecks,switches;readonly Button save,iconButton;readonly Image currentIcon;readonly Popup popup;readonly UniformGrid icons;readonly TextBlock status;readonly TextBox preview;
-    readonly CheckBox displayEnabled,brightnessEnabled;readonly Slider brightnessSlider;readonly ComboBox displaySelector,refreshSelector,fanSelector;readonly TextBlock displayUnavailable;
+    readonly CheckBox[] powerChecks,fanChecks,switches;readonly Button save,iconButton;readonly Image currentIcon;readonly Popup popup;readonly UniformGrid icons;readonly TextBlock status;readonly TextBox preview;
+    readonly ToggleButton brightnessToggle;readonly Slider brightnessSlider;readonly ComboBox displaySelector,refreshSelector;readonly TextBlock displayUnavailable;
     static readonly string[] switchNames={"EnergySaverSwitch","DarkThemeSwitch","SleepTimeoutSwitch","ScreenTimeoutSwitch","HdrSwitch","PresenceSleepSwitch","PresenceDimSwitch","ContentBrightnessSwitch","AdaptiveBrightnessSwitch","ScreenSaverSwitch","UsbPowerSwitch","WallpaperPlaybackSwitch"};
     bool updating,updatingDisplays;
     string savedScriptState;
@@ -15,15 +15,12 @@ public sealed class ConstructorWindow
     public ConstructorWindow()
     {
         using(Stream theme=Assembly.GetExecutingAssembly().GetManifestResourceStream("Theme"))Application.Current.Resources=(ResourceDictionary)XamlReader.Load(theme);
+        using(Stream categoryIcons=Assembly.GetExecutingAssembly().GetManifestResourceStream("CategoryIcons"))Application.Current.Resources.MergedDictionaries.Add((ResourceDictionary)XamlReader.Load(categoryIcons));
         WindowsTheme.Initialize(Application.Current);
         using(Stream content=Assembly.GetExecutingAssembly().GetManifestResourceStream("Window"))Window=(Window)XamlReader.Load(content);
         Window.Icon=ImageSource(EmbeddedAssets.Read("Icon0"));
-        ((Image)Window.FindName("ScreenXpertIcon")).Source=ImageSource(EmbeddedAssets.Read("AppScreenXpert"));
-        ((Image)Window.FindName("WallpaperEngineIcon")).Source=ImageSource(EmbeddedAssets.Read("AppWallpaperEngine"));
-        CroppedBitmap armouryIcon=new CroppedBitmap(ImageSource(EmbeddedAssets.Read("AppArmouryCrate")),new Int32Rect(0,0,452,460));armouryIcon.Freeze();
-        ((Image)Window.FindName("ArmouryCrateIcon")).Source=armouryIcon;
-        powerChecks=new CheckBox[4];string[] powerNames={"PowerUnchanged","Efficiency","Balanced","BestPerformance"};
-        for(int i=0;i<powerNames.Length;i++){powerChecks[i]=(CheckBox)Window.FindName(powerNames[i]);powerChecks[i].Checked+=PowerSelectionChanged;powerChecks[i].Unchecked+=PowerSelectionChanged;}
+        powerChecks=WireExclusiveChoices(new[]{"Efficiency","Balanced","BestPerformance"});
+        fanChecks=WireExclusiveChoices(new[]{"FanWhisper","FanPerformance","FanStandard"});
         switches=new CheckBox[switchNames.Length];for(int i=0;i<switchNames.Length;i++){
             switches[i]=(CheckBox)Window.FindName(switchNames[i]);switches[i].Checked+=SelectionChanged;switches[i].Unchecked+=SelectionChanged;switches[i].Indeterminate+=SelectionChanged;
             switches[i].PreviewMouseLeftButtonDown+=SwitchPointerDown;switches[i].PreviewKeyDown+=SwitchKeyDown;
@@ -37,11 +34,9 @@ public sealed class ConstructorWindow
         WindowsTheme.Attach(Window);
         SmoothScrollingController settingsScrolling=new SmoothScrollingController((ScrollViewer)Window.FindName("SettingsScroll"));
         Window.Closed+=delegate{settingsScrolling.Dispose();};
-        displayEnabled=(CheckBox)Window.FindName("DisplayEnabled");displaySelector=(ComboBox)Window.FindName("DisplaySelector");refreshSelector=(ComboBox)Window.FindName("RefreshSelector");displayUnavailable=(TextBlock)Window.FindName("DisplayUnavailable");
-        fanSelector=(ComboBox)Window.FindName("FanSelector");fanSelector.SelectionChanged+=delegate{SelectionChanged(null,null);};
-        brightnessEnabled=(CheckBox)Window.FindName("BrightnessEnabled");brightnessSlider=(Slider)Window.FindName("BrightnessSlider");
-        brightnessEnabled.Checked+=SelectionChanged;brightnessEnabled.Unchecked+=SelectionChanged;brightnessSlider.ValueChanged+=delegate{SelectionChanged(null,null);};
-        displayEnabled.Checked+=DisplaySelectionChanged;displayEnabled.Unchecked+=DisplaySelectionChanged;
+        displaySelector=(ComboBox)Window.FindName("DisplaySelector");refreshSelector=(ComboBox)Window.FindName("RefreshSelector");displayUnavailable=(TextBlock)Window.FindName("DisplayUnavailable");
+        brightnessToggle=(ToggleButton)Window.FindName("BrightnessToggleButton");brightnessSlider=(Slider)Window.FindName("BrightnessSlider");
+        brightnessToggle.Checked+=SelectionChanged;brightnessToggle.Unchecked+=SelectionChanged;brightnessSlider.ValueChanged+=delegate{SelectionChanged(null,null);};
         displaySelector.SelectionChanged+=delegate{if(!updatingDisplays){RefreshRates();DisplaySelectionChanged(null,null);}};
         refreshSelector.SelectionChanged+=delegate{DisplaySelectionChanged(null,null);};
         ((Expander)Window.FindName("DisplaySection")).Expanded+=delegate{RefreshDisplays();};
@@ -82,19 +77,21 @@ public sealed class ConstructorWindow
     public ModeConfiguration Configuration {
         get{
             DisplayInfo display=displaySelector.SelectedItem as DisplayInfo;RefreshChoice rate=refreshSelector.SelectedItem as RefreshChoice;
-            bool change=displayEnabled.IsChecked==true&&display!=null&&rate!=null&&rate.Rate!=0;
+            bool change=display!=null&&rate!=null&&rate.Rate!=0;
             int hdr=display==null?0:SwitchValue(switches[4]);
             int contentBrightness=display==null?0:SwitchValue(switches[7]);
             return new ModeConfiguration{DisplayId=change||hdr!=0||contentBrightness!=0?display.MonitorId:null,RefreshRate=change?rate.Rate:0,
-                EnergySaver=SwitchValue(switches[0]),FanProfile=Math.Max(0,fanSelector.SelectedIndex),
-                Brightness=brightnessEnabled.IsChecked==true?(int)Math.Round(brightnessSlider.Value):-1,
-                PowerMode=powerChecks[1].IsChecked==true?1:powerChecks[2].IsChecked==true?2:powerChecks[3].IsChecked==true?3:0,
+                EnergySaver=SwitchValue(switches[0]),FanProfile=SelectedMode(fanChecks),
+                Brightness=brightnessToggle.IsChecked==true?(int)Math.Round(brightnessSlider.Value):-1,
+                PowerMode=SelectedMode(powerChecks),
                 DarkTheme=SwitchValue(switches[1]),SleepTimeout=SwitchValue(switches[2]),ScreenTimeout=SwitchValue(switches[3]),Hdr=hdr,
                 PresenceSleep=SwitchValue(switches[5]),PresenceDim=SwitchValue(switches[6]),ContentBrightness=contentBrightness,
                 AdaptiveBrightness=SwitchValue(switches[8]),ScreenSaver=SwitchValue(switches[9]),UsbPower=SwitchValue(switches[10]),WallpaperPlayback=SwitchValue(switches[11])};
         }
     }
     static int SwitchValue(CheckBox control){return control.IsChecked.HasValue?(control.IsChecked.Value?1:2):0;}
+    CheckBox[] WireExclusiveChoices(string[] names){CheckBox[] result=new CheckBox[names.Length];for(int i=0;i<names.Length;i++){result[i]=(CheckBox)Window.FindName(names[i]);result[i].Checked+=ExclusiveSelectionChanged;result[i].Unchecked+=ExclusiveSelectionChanged;}return result;}
+    static int SelectedMode(CheckBox[] choices){for(int i=0;i<choices.Length;i++)if(choices[i].IsChecked==true)return i+1;return 0;}
     void SwitchPointerDown(object sender,MouseButtonEventArgs e)
     {
         CheckBox control=(CheckBox)sender;FrameworkElement track=control.Template.FindName("SwitchTrack",control) as FrameworkElement;
@@ -116,10 +113,10 @@ public sealed class ConstructorWindow
         updating=true;updatingDisplays=true;
         try{
             foreach(CheckBox check in switches)check.IsChecked=null;
-            for(int i=0;i<powerChecks.Length;i++)powerChecks[i].IsChecked=i==(performance?3:0);
-            displayEnabled.IsChecked=false;
-            switches[0].IsChecked=!performance;fanSelector.SelectedIndex=performance?2:1;
-            brightnessEnabled.IsChecked=performance;brightnessSlider.Value=100;
+            for(int i=0;i<powerChecks.Length;i++)powerChecks[i].IsChecked=performance&&i==2;
+            for(int i=0;i<fanChecks.Length;i++)fanChecks[i].IsChecked=i==(performance?1:0);
+            switches[0].IsChecked=!performance;
+            brightnessToggle.IsChecked=performance;brightnessSlider.Value=100;
             if(refreshSelector.Items.Count>0)refreshSelector.SelectedIndex=0;
         }finally{updating=previousUpdating;updatingDisplays=previousDisplays;}
         SelectionChanged(null,null);DisplaySelectionChanged(null,null);
@@ -127,16 +124,16 @@ public sealed class ConstructorWindow
     void SelectionChanged(object sender,RoutedEventArgs e)
     {
         if(updating)return;
-        brightnessSlider.IsEnabled=brightnessEnabled.IsChecked==true;
+        brightnessSlider.IsEnabled=brightnessToggle.IsChecked==true;
         status.Text="";UpdatePreview();
     }
-    void PowerSelectionChanged(object sender,RoutedEventArgs e)
+    void ExclusiveSelectionChanged(object sender,RoutedEventArgs e)
     {
         if(updating)return;updating=true;
         try{
             CheckBox selected=(CheckBox)sender;
-            if(selected.IsChecked==true){foreach(CheckBox check in powerChecks)if(check!=selected)check.IsChecked=false;}
-            else {bool any=false;foreach(CheckBox check in powerChecks)if(check.IsChecked==true)any=true;if(!any)powerChecks[0].IsChecked=true;}
+            CheckBox[] choices=Array.IndexOf(powerChecks,selected)>=0?powerChecks:fanChecks;
+            if(selected.IsChecked==true){foreach(CheckBox check in choices)if(check!=selected)check.IsChecked=false;}
         }finally{updating=false;}
         SelectionChanged(null,null);
     }
@@ -148,10 +145,10 @@ public sealed class ConstructorWindow
             List<DisplayInfo> displays;
             try{displays=DisplayControl.Enumerate();}catch{displays=new List<DisplayInfo>();}
             displaySelector.ItemsSource=displays;DisplayInfo selected=old==null?null:displays.Find(delegate(DisplayInfo d){return String.Equals(d.MonitorId,old.MonitorId,StringComparison.OrdinalIgnoreCase);});
-            if(old!=null&&selected==null){displayEnabled.IsChecked=false;switches[4].IsChecked=null;switches[7].IsChecked=null;}
+            if(old!=null&&selected==null){switches[4].IsChecked=null;switches[7].IsChecked=null;}
             displaySelector.SelectedItem=selected??(displays.Count==0?null:displays[0]);RefreshRates();
             if(selected!=null&&oldRate!=null)foreach(RefreshChoice rate in refreshSelector.Items)if(rate.Rate==oldRate.Rate)refreshSelector.SelectedItem=rate;
-            displayEnabled.IsEnabled=displays.Count>0;switches[4].IsEnabled=switches[7].IsEnabled=displays.Count>0;displayUnavailable.Visibility=displays.Count==0?Visibility.Visible:Visibility.Collapsed;
+            switches[4].IsEnabled=switches[7].IsEnabled=displays.Count>0;displayUnavailable.Visibility=displays.Count==0?Visibility.Visible:Visibility.Collapsed;
         }finally{updatingDisplays=false;}
         DisplaySelectionChanged(null,null);
     }
@@ -167,8 +164,7 @@ public sealed class ConstructorWindow
     void DisplaySelectionChanged(object sender,RoutedEventArgs e)
     {
         if(updating||updatingDisplays)return;
-        bool enabled=displayEnabled.IsChecked==true&&displaySelector.Items.Count>0;
-        displaySelector.IsEnabled=displaySelector.Items.Count>0;refreshSelector.IsEnabled=enabled&&refreshSelector.Items.Count>1;
+        displaySelector.IsEnabled=displaySelector.Items.Count>0;refreshSelector.IsEnabled=displaySelector.Items.Count>0&&refreshSelector.Items.Count>1;
         save.IsEnabled=Configuration.HasActions;status.Text="";UpdatePreview();
     }
     void UpdatePreview()
@@ -218,7 +214,7 @@ public sealed class ConstructorWindow
     {
         currentIcon.Source=ImageSource(IconChoice.GetBytes());icons.Children.Clear();
         for(int i=0;i<6;i++){
-            int choice=i;Button button=new Button{ToolTip=iconNames[i],Margin=(Thickness)Window.FindResource("Gap.Tile"),Height=(double)Window.FindResource("Size.Tile"),Tag=i};
+            int choice=i;Button button=new Button{Margin=(Thickness)Window.FindResource("Gap.Tile"),Height=(double)Window.FindResource("Size.Tile"),Tag=i};
             System.Windows.Automation.AutomationProperties.SetName(button,iconNames[i]);
             bool selected=i<5&&IconChoice.CustomPath==null&&IconChoice.BuiltInIndex==i||i==5&&IconChoice.CustomPath!=null;
             if(selected)button.Background=(Brush)Window.FindResource("Brush.SurfaceHover");

@@ -5,18 +5,18 @@ Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase,System
 Add-Type -Path (Join-Path $PSScriptRoot 'WindowObserver.cs')
 $app=New-Object Windows.Application;$ui=New-Object ConstructorWindow;$win=$ui.Window
 function Assert($condition,$message){if(-not $condition){throw $message}}
-$enable=$win.FindName('DisplayEnabled');$selector=$win.FindName('DisplaySelector');$rates=$win.FindName('RefreshSelector');$preview=$win.FindName('ScriptPreview');$section=$win.FindName('DisplaySection')
-Assert (-not $enable.IsChecked -and $ui.Configuration.RefreshRate -eq 0) 'Display action initially enabled'
+$selector=$win.FindName('DisplaySelector');$rates=$win.FindName('RefreshSelector');$preview=$win.FindName('ScriptPreview');$section=$win.FindName('DisplaySection')
+Assert ($null -eq $win.FindName('DisplayEnabled') -and $ui.Configuration.RefreshRate -eq 0 -and $rates.SelectedItem.Rate -eq 0) 'Display action initially enabled'
 Assert ($selector.Items.Count -gt 0) 'No monitors enumerated on test system'
-$section.IsExpanded=$true;$enable.IsChecked=$true
+$section.IsExpanded=$true
 if($rates.Items.Count -gt 1){$rates.SelectedIndex=1}
 Assert ($selector.IsEnabled -and $rates.IsEnabled -and $win.FindName('SaveButton').IsEnabled) 'Display controls unavailable'
 $selected=$selector.SelectedItem;$rate=$rates.SelectedItem.Rate
 Assert ($preview.Text.Contains($selected.Label) -and $preview.Text.Contains($rate.ToString()+' Гц')) 'Display not in preview'
 if($selector.Items.Count -gt 1){$selector.SelectedIndex=1;if($rates.Items.Count -gt 1){$rates.SelectedIndex=1};Assert ($ui.Configuration.DisplayId -eq $selector.SelectedItem.MonitorId) 'Wrong selected display id';Assert ($preview.Text.Contains($selector.SelectedItem.Label)) 'Monitor change not reflected'}
 $rates.SelectedIndex=0;Assert ($ui.Configuration.RefreshRate -eq $rates.SelectedItem.Rate) 'Rate selection not reflected'
-$enable.IsChecked=$false;Assert (-not $ui.Configuration.HasActions -and $preview.Text -eq 'Действия не выбраны.') 'Unchecked display remains in config'
-$selector.SelectedIndex=0;$enable.IsChecked=$true
+Assert (-not $ui.Configuration.HasActions -and $preview.Text -eq 'Действия не выбраны.') 'Unchanged refresh rate remains in config'
+$selector.SelectedIndex=0
 # Prefer 60 Hz for a real rate transition, supported by this monitor.
 foreach($choice in $rates.Items){if($choice.Rate -eq 60){$rates.SelectedItem=$choice;break}}
 $original=@([DisplayControl]::Enumerate())

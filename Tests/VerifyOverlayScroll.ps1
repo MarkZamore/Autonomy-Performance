@@ -1,10 +1,11 @@
-param([switch]$Source)
+﻿param([switch]$Source)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
 $app=New-Object Windows.Application
 if($Source){
     $app.Resources=[Windows.Markup.XamlReader]::Parse([IO.File]::ReadAllText((Join-Path $root 'Source\Theme.xaml')))
+    $app.Resources.MergedDictionaries.Add([Windows.Markup.XamlReader]::Parse([IO.File]::ReadAllText((Join-Path $root 'Source\CategoryIcons.xaml'))))
     $win=[Windows.Markup.XamlReader]::Parse([IO.File]::ReadAllText((Join-Path $root 'Source\Window.xaml')))
 }else{
     [void][Reflection.Assembly]::LoadFrom((Join-Path $root 'Source\Build\AutonomyPerformance.exe'))

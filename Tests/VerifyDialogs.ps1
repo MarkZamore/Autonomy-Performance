@@ -15,7 +15,7 @@ Assert ($cancel.Wait()) 'Save dialog cancellation failed'
 Assert ($ui.Configuration.DarkTheme -eq 1 -and $ui.IconChoice.BuiltInIndex -eq 0) 'Save cancellation changed selection'
 Click $win.FindName('IconButton');$popup=$win.FindName('IconPopup');Assert ($popup.IsOpen) 'Icon popup failed to open'
 $panel=$win.FindName('IconGrid');Assert ($panel.Children.Count -eq 6) 'Popup does not contain six choices'
-foreach($choice in $panel.Children){Assert ($choice.ToolTip -notmatch 'Energy Saver|Whisper|Performance Mode') 'English icon tooltip remains'}
+foreach($choice in $panel.Children){Assert ($null -eq $choice.ToolTip) 'Icon option tooltip remains';Assert (-not [string]::IsNullOrEmpty([Windows.Automation.AutomationProperties]::GetName($choice))) 'Icon option has no accessible name'}
 $size=$panel.RenderSize
 $bitmap=New-Object Windows.Media.Imaging.RenderTargetBitmap([int]$size.Width,[int]$size.Height,96,96,[Windows.Media.PixelFormats]::Pbgra32);$bitmap.Render($panel)
 $encoder=New-Object Windows.Media.Imaging.PngBitmapEncoder;$encoder.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap));$stream=[IO.File]::Create((Join-Path $PSScriptRoot 'Artifacts\ui-icons.png'));try{$encoder.Save($stream)}finally{$stream.Dispose()}

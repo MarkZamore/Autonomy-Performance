@@ -61,7 +61,7 @@
     <Style x:Key="Heading" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Setter Property="FontSize" Value="{StaticResource Font.Heading}"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="LineHeight" Value="{StaticResource Line.Heading}"/></Style>
     <Style x:Key="Caption" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}"/><Setter Property="FontSize" Value="{StaticResource Font.Caption}"/><Setter Property="LineHeight" Value="{StaticResource Line.Caption}"/></Style>
     <Style x:Key="CategoryIcon" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Setter Property="FontFamily" Value="{StaticResource Font.Icons}"/><Setter Property="FontSize" Value="{StaticResource Size.CategoryIcon}"/><Setter Property="LineHeight" Value="{StaticResource Line.Heading}"/><Setter Property="Width" Value="{StaticResource Size.CategoryIcon}"/><Setter Property="Margin" Value="{StaticResource Gap.CategoryIcon}"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="TextWrapping" Value="NoWrap"/></Style>
-    <Style x:Key="AppCategoryIcon" TargetType="Image"><Setter Property="Width" Value="24"/><Setter Property="Height" Value="24"/><Setter Property="Margin" Value="0,0,12,0"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Stretch" Value="Uniform"/><Setter Property="RenderOptions.BitmapScalingMode" Value="HighQuality"/></Style>
+    <Style x:Key="AppCategoryIcon" TargetType="Image"><Setter Property="Width" Value="20"/><Setter Property="Height" Value="20"/><Setter Property="Margin" Value="{StaticResource Gap.CategoryIcon}"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Stretch" Value="Uniform"/></Style>
 
     <Style TargetType="Button">
         <Setter Property="MinHeight" Value="{StaticResource Size.Control}"/><Setter Property="Padding" Value="{StaticResource Pad.Control}"/>
@@ -116,7 +116,6 @@
     <Style x:Key="TriStateSwitch" TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}">
         <Setter Property="IsThreeState" Value="True"/><Setter Property="IsChecked" Value="{x:Null}"/>
         <Setter Property="MinHeight" Value="56"/><Setter Property="Padding" Value="0,8"/>
-        <Setter Property="ToolTip" Value="Слева — выключить, в центре — не менять, справа — включить"/>
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
             <Grid Background="Transparent" Margin="{TemplateBinding Padding}">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -142,9 +141,16 @@
     </Style>
     <Style x:Key="BrightnessThumb" TargetType="Thumb">
         <Setter Property="Width" Value="24"/><Setter Property="Height" Value="28"/>
-        <Setter Property="ToolTipService.InitialShowDelay" Value="0"/><Setter Property="ToolTipService.ShowDuration" Value="60000"/>
-        <Setter Property="ToolTip" Value="{Binding Value, RelativeSource={RelativeSource AncestorType={x:Type Slider}}}"/>
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Thumb"><Grid Background="Transparent"><Ellipse Width="24" Height="24" Fill="#454B50"/><Ellipse x:Name="SliderThumbCenter" Width="12" Height="12" Fill="{DynamicResource Brush.CheckFill}"/></Grid><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="SliderThumbCenter" Property="Width" Value="14"/><Setter TargetName="SliderThumbCenter" Property="Height" Value="14"/></Trigger><Trigger Property="IsDragging" Value="True"><Setter TargetName="SliderThumbCenter" Property="Width" Value="10"/><Setter TargetName="SliderThumbCenter" Property="Height" Value="10"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style x:Key="BrightnessToggle" TargetType="ToggleButton">
+        <Setter Property="Width" Value="36"/><Setter Property="Height" Value="36"/><Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}"/><Setter Property="Background" Value="Transparent"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton"><Border x:Name="BrightnessButtonSurface" Background="{TemplateBinding Background}" CornerRadius="{StaticResource Radius.Control}"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border><ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="BrightnessButtonSurface" Property="Background" Value="{DynamicResource Brush.SurfaceHover}"/></Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="BrightnessButtonSurface" Property="Background" Value="{DynamicResource Brush.SurfaceHover}"/></Trigger>
+            <Trigger Property="IsChecked" Value="True"><Setter TargetName="BrightnessButtonSurface" Property="Background" Value="{DynamicResource Brush.CheckFill}"/><Setter Property="Foreground" Value="{DynamicResource Brush.CheckMark}"/></Trigger>
+            <Trigger Property="IsPressed" Value="True"><Setter TargetName="BrightnessButtonSurface" Property="Background" Value="{DynamicResource Brush.CheckFillPressed}"/></Trigger>
+        </ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style x:Key="BrightnessSlider" TargetType="Slider">
         <Setter Property="Height" Value="36"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/><Setter Property="IsMoveToPointEnabled" Value="True"/>
@@ -184,8 +190,8 @@
     <Style TargetType="ComboBoxItem">
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text}"/><Setter Property="FontFamily" Value="{StaticResource Font.Family}"/><Setter Property="FontSize" Value="{StaticResource Font.Body}"/><Setter Property="MinHeight" Value="{StaticResource Size.Control}"/><Setter Property="Padding" Value="{StaticResource Pad.Control}"/><Setter Property="Margin" Value="0,2"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBoxItem">
-            <Grid><Border x:Name="ItemSurface" Background="Transparent" CornerRadius="{StaticResource Radius.Control}" Padding="{TemplateBinding Padding}"><ContentPresenter VerticalAlignment="Center"/></Border><Border x:Name="SelectionMark" Width="3" Height="16" Background="{DynamicResource Brush.Accent}" CornerRadius="1.5" HorizontalAlignment="Left" Visibility="Collapsed"/></Grid>
-            <ControlTemplate.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="{DynamicResource Brush.SubtleHover}"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="{DynamicResource Brush.SubtleHover}"/><Setter TargetName="SelectionMark" Property="Visibility" Value="Visible"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger></ControlTemplate.Triggers>
+            <Border x:Name="ItemSurface" Background="Transparent" CornerRadius="{StaticResource Radius.Control}" Padding="{TemplateBinding Padding}"><ContentPresenter VerticalAlignment="Center"/></Border>
+            <ControlTemplate.Triggers><Trigger Property="IsHighlighted" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="{DynamicResource Brush.SubtleHover}"/></Trigger><Trigger Property="IsSelected" Value="True"><Setter TargetName="ItemSurface" Property="Background" Value="{DynamicResource Brush.CheckFill}"/><Setter Property="Foreground" Value="{DynamicResource Brush.CheckMark}"/></Trigger><MultiTrigger><MultiTrigger.Conditions><Condition Property="IsSelected" Value="True"/><Condition Property="IsHighlighted" Value="True"/></MultiTrigger.Conditions><Setter TargetName="ItemSurface" Property="Background" Value="{DynamicResource Brush.CheckFillHover}"/></MultiTrigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.4"/></Trigger></ControlTemplate.Triggers>
         </ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style TargetType="ComboBox">

@@ -11,7 +11,7 @@ function Assert($condition,$message){if(-not $condition){throw $message}}
 function Clear-Actions {
     $ui.ApplyPreset($false)
     $win.FindName('EnergySaverSwitch').IsChecked=$null
-    $win.FindName('FanSelector').SelectedIndex=0
+    foreach($name in @('FanWhisper','FanPerformance','FanStandard')){$win.FindName($name).IsChecked=$false}
 }
 function Render-Ui($scenario) {
     $size=[Windows.Size]::new($scenario.Width,$scenario.Height)
@@ -43,32 +43,32 @@ try {
     foreach($section in @('AutonomySection','PerformanceSection','WallpaperSection','ArmourySection','PowerSection','DisplaySection','AdditionalSection')){Assert (-not $win.FindName($section).IsExpanded) ('Section not collapsed: '+$section)}
     Assert (-not $ui.Configuration.HasActions -and -not $win.FindName('SaveButton').IsEnabled) 'Initial selection is not empty'
     $win.FindName('AutonomySection').IsExpanded=$true
-    $win.FindName('EnergySaverSwitch').IsChecked=$true;$win.FindName('FanSelector').SelectedIndex=1
+    $win.FindName('EnergySaverSwitch').IsChecked=$true;$win.FindName('FanWhisper').IsChecked=$true
     Assert ($preview.Text -eq "1. Включить энергосбережение`r`n2. Тихий режим вентиляторов") 'Autonomy preview is not localized or in the expected order'
-    $win.FindName('FanSelector').SelectedIndex=2
+    $win.FindName('FanPerformance').IsChecked=$true
     Assert ($preview.Text -eq "1. Включить энергосбережение`r`n2. Производительный режим вентиляторов") 'Fan conflict not reflected in preview'
     $win.FindName('EnergySaverSwitch').IsChecked=$null
     Assert ($preview.Text -eq '1. Производительный режим вентиляторов') 'Preview numbering did not update'
-    $win.FindName('FanSelector').SelectedIndex=0
+    $win.FindName('FanPerformance').IsChecked=$false
     Assert ($preview.Text -eq 'Действия не выбраны.') 'Preview did not clear'
     $win.FindName('EnergySaverSwitch').IsChecked=$false
     Assert ($ui.Configuration.EnergySaver -eq 2) 'Saver off state failed'
-    $win.FindName('FanSelector').SelectedIndex=1;$win.FindName('FanSelector').SelectedIndex=2
+    $win.FindName('FanWhisper').IsChecked=$true;$win.FindName('FanPerformance').IsChecked=$true
     Assert ($ui.Configuration.FanProfile -eq 2) 'Fan replacement failed'
     $win.FindName('Efficiency').IsChecked=$true;$win.FindName('Balanced').IsChecked=$true;$win.FindName('BestPerformance').IsChecked=$true
     Assert ((-not $win.FindName('Efficiency').IsChecked)-and(-not $win.FindName('Balanced').IsChecked)) 'Power conflict failed'
     $win.FindName('EnergySaverSwitch').IsChecked=$true
     Assert ($win.FindName('BestPerformance').IsChecked -and $win.FindName('EnergySaverSwitch').IsChecked) 'Power and energy saver are not independent'
     $win.FindName('BestPerformance').IsChecked=$false
-    Assert ($ui.Configuration.PowerMode -eq 0 -and $win.FindName('PowerUnchanged').IsChecked) 'Power does not return to unchanged'
+    Assert ($ui.Configuration.PowerMode -eq 0 -and -not $win.FindName('Efficiency').IsChecked -and -not $win.FindName('Balanced').IsChecked) 'Power does not return to unchanged'
     Clear-Actions
     Assert (-not $win.FindName('SaveButton').IsEnabled) 'Save stays enabled after clearing'
-    $win.FindName('FanSelector').SelectedIndex=1;$win.FindName('EnergySaverSwitch').IsChecked=$false;$win.FindName('Balanced').IsChecked=$true
+    $win.FindName('FanWhisper').IsChecked=$true;$win.FindName('EnergySaverSwitch').IsChecked=$false;$win.FindName('Balanced').IsChecked=$true
     Assert ($win.FindName('SaveButton').IsEnabled) 'Save disabled for mixed profile'
     $win.FindName('PowerSection').IsExpanded=$false
     Assert ($ui.Configuration.PowerMode -eq 2) 'Collapsing a category clears selection'
     Clear-Actions
-    $win.FindName('EnergySaverSwitch').IsChecked=$true;$win.FindName('FanSelector').SelectedIndex=1;$win.FindName('Balanced').IsChecked=$true
+    $win.FindName('EnergySaverSwitch').IsChecked=$true;$win.FindName('FanWhisper').IsChecked=$true;$win.FindName('Balanced').IsChecked=$true
     Assert ($preview.Text.Contains('3. Сбалансированный')) 'Power missing from preview'
     $win.FindName('Efficiency').IsChecked=$true
     Assert ($preview.Text.Contains('3. Максимальная эффективность энергосбережения') -and -not $preview.Text.Contains('Сбалансированный')) 'Power replacement not reflected'

@@ -10,7 +10,8 @@ $ui=New-Object ConstructorWindow
 $win=$ui.Window
 $script:assertions=0
 $additional=@('DarkTheme','SleepTimeout','ScreenTimeout','Hdr','PresenceSleep','PresenceDim','ContentBrightness','AdaptiveBrightness','ScreenSaver','UsbPower')
-$power=@('PowerUnchanged','Efficiency','Balanced','BestPerformance')
+$power=@('Efficiency','Balanced','BestPerformance')
+$fanNames=@('FanWhisper','FanPerformance','FanStandard')
 $fields=@('Version','EnergySaver','FanProfile','PowerMode','Brightness','DisplayId','RefreshRate')+$additional
 $results=@()
 function Assert($condition,$message){$script:assertions++;if(-not $condition){throw $message}}
@@ -18,10 +19,9 @@ function Click($button){$button.RaiseEvent([Windows.RoutedEventArgs]::new([Windo
 function Reset-Actions {
     $ui.ApplyPreset($false)
     $win.FindName('EnergySaverSwitch').IsChecked=$null
-    $win.FindName('FanSelector').SelectedIndex=0
-    $win.FindName('PowerUnchanged').IsChecked=$true
-    $win.FindName('BrightnessEnabled').IsChecked=$false
-    $win.FindName('DisplayEnabled').IsChecked=$false
+    foreach($name in $fanNames+$power){$win.FindName($name).IsChecked=$false}
+    $win.FindName('BrightnessToggleButton').IsChecked=$false
+    $win.FindName('RefreshSelector').SelectedIndex=0
     foreach($field in $additional){$win.FindName($field+'Switch').IsChecked=$null}
 }
 function Assert-NumberedPreview {
@@ -57,7 +57,7 @@ try {
     Assert ($ui.Configuration.Version -eq 2 -and $ui.Configuration.Brightness -eq -1) 'Wrong new configuration defaults'
     Assert ($win.FindName('Volume') -eq $null) 'Removed volume setting remains in the UI'
     Assert ($ui.Configuration.GetType().GetField('Volume100') -eq $null) 'Volume remains an executable configuration field'
-    Assert ($win.FindName('PowerUnchanged').IsChecked -eq $true) 'Explicit unchanged power option is not selected initially'
+    Assert ($null -eq $win.FindName('PowerUnchanged') -and $ui.Configuration.PowerMode -eq 0) 'Removed unchanged power option remains'
     foreach($field in @('EnergySaver')+$additional){
         $toggle=$win.FindName($field+'Switch')
         Assert ($toggle -ne $null -and $toggle.IsThreeState -and $null -eq $toggle.IsChecked) ('Switch is not initially neutral and three-state: '+$field)
@@ -66,35 +66,36 @@ try {
         $toggle.IsChecked=$null;Assert ($ui.Configuration.$field -eq 0) ('Neutral state mapping failed: '+$field)
     }
     Assert (-not $ui.Configuration.HasActions) 'Returning every switch to neutral leaves an action'
-    $fan=$win.FindName('FanSelector')
-    for($i=0;$i -lt 3;$i++){$fan.SelectedIndex=$i;Assert ($ui.Configuration.FanProfile -eq $i) ('Fan mode mapping failed: '+$i)}
-    $fan.SelectedIndex=0
-    for($i=1;$i -lt 4;$i++){
+    for($i=0;$i -lt 3;$i++){
+        $win.FindName($fanNames[$i]).IsChecked=$true;Assert ($ui.Configuration.FanProfile -eq ($i+1)) ('Fan mode mapping failed: '+$fanNames[$i])
+        foreach($other in $fanNames){Assert (($win.FindName($other).IsChecked -eq $true) -eq ($other -eq $fanNames[$i])) ('Fan choices not exclusive: '+$other)}
+    }
+    $win.FindName('FanStandard').IsChecked=$false
+    for($i=0;$i -lt 3;$i++){
         $win.FindName($power[$i]).IsChecked=$true
-        Assert ($ui.Configuration.PowerMode -eq $i) ('Power mode mismatch: '+$power[$i])
+        Assert ($ui.Configuration.PowerMode -eq ($i+1)) ('Power mode mismatch: '+$power[$i])
         foreach($other in $power){Assert (($win.FindName($other).IsChecked -eq $true) -eq ($other -eq $power[$i])) ('Power choices not exclusive: '+$other)}
         $win.FindName($power[$i]).IsChecked=$false
-        Assert ($ui.Configuration.PowerMode -eq 0 -and $win.FindName('PowerUnchanged').IsChecked -eq $true) 'Unchecking a power mode does not restore unchanged'
+        Assert ($ui.Configuration.PowerMode -eq 0) 'Unchecking a power mode does not restore unchanged'
     }
     $win.FindName('Balanced').IsChecked=$true;$win.FindName('EnergySaverSwitch').IsChecked=$true
     Assert ($ui.Configuration.PowerMode -eq 2 -and $ui.Configuration.EnergySaver -eq 1) 'Energy Saver and power mode are no longer independent'
     Reset-Actions
-    $slider=$win.FindName('BrightnessSlider');$brightness=$win.FindName('BrightnessEnabled')
+    $slider=$win.FindName('BrightnessSlider');$brightness=$win.FindName('BrightnessToggleButton')
     Assert ($slider.Minimum -eq 0 -and $slider.Maximum -eq 100 -and $slider.Value -eq 100) 'Brightness slider range/default is incorrect'
     $brightness.IsChecked=$true;$slider.Value=37
     Assert ($ui.Configuration.Brightness -eq 37 -and $win.FindName('ScriptPreview').Text.Contains('37%')) 'Brightness percentage missing from config/preview'
-    Assert ($slider.IsEnabled) 'Brightness checkbox does not enable its slider'
+    Assert ($slider.IsEnabled) 'Brightness icon does not enable its slider'
     $win.FindName('DisplaySection').IsExpanded=$true
     $layout=$win.FindName('RootGrid');$layout.Measure([Windows.Size]::new(936,613));$layout.Arrange([Windows.Rect]::new(0,0,936,613));$layout.UpdateLayout()
     [void]$slider.ApplyTemplate();$thumb=$slider.Template.FindName('BrightnessThumb',$slider)
-    Assert ($thumb -ne $null -and [string]$thumb.ToolTip -eq '37' -and [Windows.Controls.ToolTipService]::GetInitialShowDelay($thumb) -eq 0) 'Hovering brightness thumb has no immediate numeric tooltip'
+    Assert ($thumb -ne $null -and $null -eq $thumb.ToolTip) 'Brightness thumb tooltip remains'
     $slider.Value=0;Assert ($ui.Configuration.Brightness -eq 0 -and $ui.Configuration.HasActions) 'Zero brightness is confused with unchanged'
     $brightness.IsChecked=$false;Assert ($ui.Configuration.Brightness -eq -1 -and -not $ui.Configuration.HasActions) 'Disabled brightness remains an action'
     Assert (-not $slider.IsEnabled) 'Brightness slider remains editable after unchecking'
     $selector=$win.FindName('DisplaySelector');$rates=$win.FindName('RefreshSelector')
     Assert ($selector.IsEnabled) 'Display selector must remain usable as the HDR target'
     if($selector.Items.Count -gt 0){
-        $win.FindName('DisplayEnabled').IsChecked=$true
         $choice=@($rates.Items|Where-Object {$_.Rate -gt 0})|Select-Object -First 1
         if($choice){
             $rates.SelectedItem=$choice
@@ -104,7 +105,7 @@ try {
             Assert ($win.FindName('ScriptPreview').Text.Contains($selector.SelectedItem.Label)) 'HDR preview has no target display'
             Assert-NumberedPreview
         }
-        $win.FindName('DisplayEnabled').IsChecked=$false;$win.FindName('HdrSwitch').IsChecked=$null
+        $rates.SelectedIndex=0;$win.FindName('HdrSwitch').IsChecked=$null
         $win.FindName('ContentBrightnessSwitch').IsChecked=$true
         Assert ($ui.Configuration.ContentBrightness -eq 1 -and $ui.Configuration.RefreshRate -eq 0 -and $ui.Configuration.Hdr -eq 0 -and $ui.Configuration.DisplayId -eq $selector.SelectedItem.MonitorId) 'Content brightness did not independently retain its display target'
         Assert ($win.FindName('ScriptPreview').Text.Contains('оптимизацию яркости по содержимому') -and $win.FindName('ScriptPreview').Text.Contains($selector.SelectedItem.Label)) 'Content brightness preview has no action or target display'
@@ -112,7 +113,7 @@ try {
     }
     foreach($performance in @($false,$true)){
         foreach($field in $additional){$win.FindName($field+'Switch').IsChecked=$true}
-        $win.FindName('EnergySaverSwitch').IsChecked=$false;$fan.SelectedIndex=2
+        $win.FindName('EnergySaverSwitch').IsChecked=$false;$win.FindName('FanPerformance').IsChecked=$true
         $win.FindName('Balanced').IsChecked=$true;$brightness.IsChecked=$true;$slider.Value=22
         $ui.IconChoice.SelectBuiltIn(4);$ui.RefreshIcons();$icon=[Convert]::ToBase64String($ui.IconChoice.GetBytes())
         Click ($win.FindName($(if($performance){'PresetPerformanceButton'}else{'PresetAutonomyButton'})))
@@ -197,5 +198,5 @@ try {
     $win.FindName('SettingsScroll').ScrollToBottom();$win.FindName('RootGrid').UpdateLayout()
     $results+=Render-Ui 'additional-bottom' 984 661 1
     [pscustomobject]@{Passed=$true;Assertions=$script:assertions;ExportRoundtrip=$true;PresetsReplaceAll=$true;DisconnectedDisplaySkipped=$true;NoPhysicalSettingsApplied=$true;Screenshots=$results}|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $art 'results.json') -Encoding UTF8
-    'PASS: '+$script:assertions+' assertions; three-state switches, unchanged power choice, brightness slider, display/HDR/content-brightness preview, presets, standalone export and responsive layout. Missing-display execution safely skipped all three display actions; no physical settings were applied.'
+    'PASS: '+$script:assertions+' assertions; three-state switches, deselectable power/fan choices, brightness icon and slider, display/HDR/content-brightness preview, presets, standalone export and responsive layout. Missing-display execution safely skipped all three display actions; no physical settings were applied.'
 }finally{$win.Close()}

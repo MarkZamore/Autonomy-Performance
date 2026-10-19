@@ -20,7 +20,7 @@ try{
     $win.FindName('IconGrid').Children[1].RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
     Assert ($save.IsEnabled) 'Icon change did not enable Save'
     [void]$method.Invoke($ui,@([string](Join-Path $folder 'OtherIcon.exe')));Assert (-not $save.IsEnabled) 'Icon export did not lock Save'
-    $win.FindName('BrightnessEnabled').IsChecked=$true
+    $win.FindName('BrightnessToggleButton').IsChecked=$true
     $win.FindName('BrightnessSlider').Value=37
     $rejected=$false;try{[void]$method.Invoke($ui,@([string](Join-Path $folder 'Missing\No.exe')))}catch{$rejected=$true}
     Assert ($rejected -and $save.IsEnabled) 'Failed save changed clean/dirty state'

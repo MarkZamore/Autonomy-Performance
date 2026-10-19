@@ -10,10 +10,13 @@ $bitmap=[Windows.Media.Imaging.RenderTargetBitmap]::new($width,$height,96,96,[Wi
 }
 try{
 $icons=$win.FindName('IconGrid');$icons.Background=$app.Resources['Brush.Popup'];Render $icons 216 144 (Join-Path $PSScriptRoot 'Artifacts\ui-icons.png')
-$win.FindName('DisplaySection').IsExpanded=$true;$win.FindName('DisplayEnabled').IsChecked=$true
+$win.FindName('DisplaySection').IsExpanded=$true
 foreach($rate in $win.FindName('RefreshSelector').Items){if($rate.Rate -eq 60){$win.FindName('RefreshSelector').SelectedItem=$rate;break}}
+$win.FindName('BrightnessToggleButton').IsChecked=$true;$win.FindName('BrightnessSlider').Value=63
 $grid=$win.FindName('RootGrid');$grid.Background=[Windows.Media.Brushes]::Transparent;Render $grid 984 661 (Join-Path $PSScriptRoot 'Artifacts\Display\ui-display.png')
-$win.FindName('DisplayEnabled').IsChecked=$false;$win.FindName('DisplaySection').IsExpanded=$false
+$win.FindName('SettingsScroll').ScrollToBottom();$grid.UpdateLayout();Render $grid 984 661 (Join-Path $PSScriptRoot 'Artifacts\Display\ui-display.png')
+$win.FindName('RefreshSelector').SelectedIndex=0;$win.FindName('DisplaySection').IsExpanded=$false
 $ui.ApplyPreset($true);$win.FindName('PerformanceSection').IsExpanded=$true
+$win.FindName('SettingsScroll').ScrollToTop();$grid.UpdateLayout()
 Render $grid 984 661 (Join-Path $PSScriptRoot 'Artifacts\ui-performance-preset.png')
 }finally{$win.Close()}

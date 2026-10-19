@@ -20,10 +20,10 @@ function Assert-Preset([bool]$performance,[string]$label) {
     Assert ($c.FanProfile -eq $(if($performance){2}else{1})) ('Wrong fan: '+$label)
     Assert ($c.PowerMode -eq $(if($performance){3}else{0})) ('Wrong power: '+$label)
     Assert ($c.Brightness -eq $(if($performance){100}else{-1})) ('Wrong brightness: '+$label)
-    Assert ($win.FindName('PowerUnchanged').IsChecked -eq (-not $performance)) ('Wrong unchanged power selection: '+$label)
-    Assert ($win.FindName('BrightnessEnabled').IsChecked -eq $performance) ('Wrong brightness checkbox: '+$label)
+    Assert ($win.FindName('BestPerformance').IsChecked -eq $performance -and -not $win.FindName('Efficiency').IsChecked -and -not $win.FindName('Balanced').IsChecked) ('Wrong power selection: '+$label)
+    Assert ($win.FindName('BrightnessToggleButton').IsChecked -eq $performance) ('Wrong brightness icon state: '+$label)
     foreach($field in $additional){Assert ($c.$field -eq 0 -and $null -eq $win.FindName($field+'Switch').IsChecked) ('Additional action remains selected: '+$label+' '+$field)}
-    Assert ($c.RefreshRate -eq 0 -and [string]::IsNullOrEmpty($c.DisplayId) -and -not $win.FindName('DisplayEnabled').IsChecked) ('Display configuration not removed: '+$label)
+    Assert ($c.RefreshRate -eq 0 -and [string]::IsNullOrEmpty($c.DisplayId) -and $win.FindName('RefreshSelector').SelectedItem.Rate -eq 0) ('Display configuration not removed: '+$label)
     $expected=if($performance){@('Выключить энергосбережение','Производительный режим вентиляторов','Яркость 100%','Оптимальная производительность')}else{@('Включить энергосбережение','Тихий режим вентиляторов')}
     $lines=@($win.FindName('ScriptPreview').Text -split '\r?\n')
     Assert ($lines.Count -eq $expected.Count) ('Unexpected preview count: '+$label)
@@ -36,10 +36,9 @@ try {
     foreach($custom in @($false,$true)) {
         foreach($performance in @($false,$true)) {
             $label=$(if($performance){'performance'}else{'autonomy'})+'-'+$(if($custom){'custom'}else{'builtin'})
-            $win.FindName('EnergySaverSwitch').IsChecked=$false;$win.FindName('FanSelector').SelectedIndex=2
-            $win.FindName('Balanced').IsChecked=$true;$win.FindName('BrightnessEnabled').IsChecked=$true;$win.FindName('BrightnessSlider').Value=22
+            $win.FindName('EnergySaverSwitch').IsChecked=$false;$win.FindName('FanPerformance').IsChecked=$true
+            $win.FindName('Balanced').IsChecked=$true;$win.FindName('BrightnessToggleButton').IsChecked=$true;$win.FindName('BrightnessSlider').Value=22
             foreach($field in $additional){$win.FindName($field+'Switch').IsChecked=$true}
-            $win.FindName('DisplayEnabled').IsChecked=$true
             $rates=$win.FindName('RefreshSelector');$choice=@($rates.Items|Where-Object {$_.Rate -gt 0})|Select-Object -First 1
             if($choice){$rates.SelectedItem=$choice;Assert ($ui.Configuration.RefreshRate -gt 0) 'Mixed profile did not include the display action'}
             if($custom){$ui.IconChoice.SelectCustom((Join-Path $root 'Source\Assets\Icon2.ico'))}else{$ui.IconChoice.SelectBuiltIn(4)}
@@ -55,7 +54,7 @@ try {
             $loaded=[PeConfiguration]::Read($path);$selected=$ui.Configuration
             foreach($field in $fields){Assert ($loaded.$field -eq $selected.$field) ('Preset export mismatch: '+$label+' '+$field)}
             # Do not execute a real preset: editing and exporting cannot apply it to the system.
-            $win.FindName('Balanced').IsChecked=$true;$win.FindName('FanSelector').SelectedIndex=1;$win.FindName('BrightnessEnabled').IsChecked=$false
+            $win.FindName('Balanced').IsChecked=$true;$win.FindName('FanWhisper').IsChecked=$true;$win.FindName('BrightnessToggleButton').IsChecked=$false
             Assert ($ui.Configuration.PowerMode -eq 2 -and $ui.Configuration.FanProfile -eq 1 -and $ui.Configuration.Brightness -eq -1) ('Preset cannot be edited: '+$label)
             Assert (-not $win.FindName('BestPerformance').IsChecked) ('Manual power conflict failed: '+$label)
             $results+=[pscustomobject]@{Scenario=$label;PresetReplacedAllActions=$true;DisplayCleared=$true;IconPreserved=$true;ManualEditing=$true;ExportRoundtrip=$true;ExportPath=$path}

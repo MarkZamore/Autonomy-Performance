@@ -1,0 +1,50 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Monochrome category artwork: 20 DIP canvas and the same fine, rounded
+         contour used by the surrounding Segoe Fluent category glyphs. -->
+    <SolidColorBrush x:Key="CategoryIcon.Stroke" Color="#FFFFFF"/>
+    <Pen x:Key="CategoryIcon.Pen" Brush="{StaticResource CategoryIcon.Stroke}"
+         Thickness="1.3" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+
+    <!-- ScreenXpert: the two offset diagonal ribbon shapes of its application mark. -->
+    <DrawingImage x:Key="Icon.ScreenXpert">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="Transparent" Geometry="M 0,0 H 20 V 20 H 0 Z"/>
+                <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}"
+                    Geometry="M 5.2,11.35 C 4.25,10.4 4.25,8.95 5.2,8 L 11.3,1.9 L 16.3,1.9 L 8.55,9.65 C 7.62,10.58 6.15,12.3 5.2,11.35 Z"/>
+                <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}"
+                    Geometry="M 14.8,8.65 C 15.75,9.6 15.75,11.05 14.8,12 L 8.7,18.1 L 3.7,18.1 L 11.45,10.35 C 12.38,9.42 13.85,7.7 14.8,8.65 Z"/>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <!-- Wallpaper Engine: the offset wallpaper frames and central gear/aperture. -->
+    <DrawingImage x:Key="Icon.WallpaperEngine">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="Transparent" Geometry="M 0,0 H 20 V 20 H 0 Z"/>
+                <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}"
+                    Geometry="M 6.6,3.2 V 2.4 C 6.6,1.9 7,1.5 7.5,1.5 H 16.9 C 17.4,1.5 17.8,1.9 17.8,2.4 V 12 C 17.8,12.5 17.4,12.9 16.9,12.9 H 16.1 M 3.9,5.1 H 13.4 C 14.1,5.1 14.6,5.6 14.6,6.3 V 16.4 C 14.6,17.1 14.1,17.6 13.4,17.6 H 3.1 C 2.4,17.6 1.9,17.1 1.9,16.4 V 6.3 C 1.9,5.6 2.4,5.1 3.1,5.1 Z"/>
+                <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}"
+                    Geometry="M 7.1,7.5 H 9.4 L 9.7,8.6 L 10.7,9.2 L 11.8,8.9 L 12.9,10.8 L 12,11.6 V 12.7 L 12.9,13.5 L 11.8,15.3 L 10.7,15 L 9.7,15.6 L 9.4,16.7 H 7.1 L 6.8,15.6 L 5.8,15 L 4.7,15.3 L 3.6,13.5 L 4.5,12.7 V 11.6 L 3.6,10.8 L 4.7,8.9 L 5.8,9.2 L 6.8,8.6 Z"/>
+                <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}">
+                    <GeometryDrawing.Geometry><EllipseGeometry Center="8.25,12.1" RadiusX="1.8" RadiusY="1.8"/></GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <!-- ARMOURY CRATE: the hexagonal crate and three faceted triangular blades. -->
+    <DrawingImage x:Key="Icon.ArmouryCrate">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="Transparent" Geometry="M 0,0 H 20 V 20 H 0 Z"/>
+                <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}"
+                    Geometry="M 10,1.15 L 18,5.55 V 14.45 L 10,18.85 L 2,14.45 V 5.55 Z"/>
+                <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}"
+                    Geometry="M 10,2.55 L 16.55,13.95 L 12.65,11.65 Z M 16.55,13.95 L 3.45,13.95 L 7.45,11.65 Z M 3.45,13.95 L 10,2.55 L 10,7.2 Z"/>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+</ResourceDictionary>

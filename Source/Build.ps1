@@ -27,7 +27,7 @@ $arguments=@('/target:winexe','/platform:x64','/optimize+',('/out:'+$builder),('
 $arguments+=$versionSource
 foreach($sourceFile in @('SmoothScrolling.cs','NativeFileDialogs.cs','PortableResources.cs')){$arguments+=(Join-Path $PSScriptRoot $sourceFile)}
 for($i=0;$i -lt 5;$i++){$arguments+=('/resource:'+(Join-Path $PSScriptRoot ('Assets\Icon'+$i+'.ico'))+',Icon'+$i)}
-foreach($asset in @(@('ScreenXpert.png','AppScreenXpert'),@('WallpaperEngine.ico','AppWallpaperEngine'),@('ArmouryCrate.png','AppArmouryCrate'))){$arguments+=('/resource:'+(Join-Path $PSScriptRoot ('Assets\'+$asset[0]))+','+$asset[1])}
+$arguments+=('/resource:'+(Join-Path $PSScriptRoot 'CategoryIcons.xaml')+',CategoryIcons')
 Compile $arguments
 Copy-Item -LiteralPath $builder -Destination (Join-Path $root 'Autonomy&Performance.exe') -Force
 if(-not $SkipPresets){

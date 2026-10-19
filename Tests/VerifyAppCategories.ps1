@@ -8,12 +8,13 @@ try{
     foreach($item in @(@('PerformanceSection','ScreenXpert','ScreenXpertIcon'),@('WallpaperSection','Wallpaper Engine','WallpaperEngineIcon'),@('ArmourySection','ARMOURY CRATE','ArmouryCrateIcon'))){
         $section=$win.FindName($item[0]);Assert ($null -ne $section -and -not $section.IsExpanded) ('Missing/collapsed category: '+$item[1])
         Assert ([Windows.Automation.AutomationProperties]::GetName($section) -eq $item[1]) ('Wrong category name: '+$item[1])
-        Assert ($win.FindName($item[2]).Source.PixelWidth -gt 16) ('Missing embedded category icon: '+$item[1])
+        $image=$win.FindName($item[2]);Assert ($image.Source -is [Windows.Media.DrawingImage]) ('Category icon is not an embedded vector: '+$item[1])
+        Assert ($image.Width -eq 20 -and $image.Height -eq 20 -and $image.Source.Width -eq 20 -and $image.Source.Height -eq 20) ('Category icon dimensions differ: '+$item[1])
     }
     Assert ($win.FindName('ArmourySection').Content -is [Windows.Controls.Grid] -and $win.FindName('ArmourySection').Content.Children.Count -eq 0) 'ARMOURY CRATE is not empty'
-    $fan=$win.FindName('FanSelector');Assert ($fan.Items.Count -eq 4) 'Missing fan mode or unchanged option'
-    $fan.SelectedIndex=3;Assert ($ui.Configuration.FanProfile -eq 3 -and $win.FindName('ScriptPreview').Text.Contains('Стандартный режим')) 'Standard fan mode missing from config/preview'
-    $fan.SelectedIndex=0
+    $fan=$win.FindName('FanStandard');Assert ($fan -is [Windows.Controls.CheckBox]) 'Fan mode is not a checkbox'
+    $fan.IsChecked=$true;Assert ($ui.Configuration.FanProfile -eq 3 -and $win.FindName('ScriptPreview').Text.Contains('Стандартный режим')) 'Standard fan mode missing from config/preview'
+    $fan.IsChecked=$false
     $toggle=$win.FindName('WallpaperPlaybackSwitch');Assert ($toggle.IsThreeState -and $null -eq $toggle.IsChecked) 'Wallpaper switch is not neutral'
     $toggle.IsChecked=$false;Assert ($ui.Configuration.WallpaperPlayback -eq 2 -and $ui.Configuration.HasActions -and $win.FindName('ScriptPreview').Text.Contains('паузу')) 'Wallpaper pause is not selected'
     $toggle.IsChecked=$true;Assert ($ui.Configuration.WallpaperPlayback -eq 1 -and $win.FindName('ScriptPreview').Text.Contains('Продолжить')) 'Wallpaper play is not selected'

@@ -19,26 +19,25 @@
                         </StackPanel>
                     </Expander>
                     <Expander x:Name="PerformanceSection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="ScreenXpert">
-                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="ScreenXpertIcon" Style="{StaticResource AppCategoryIcon}"/><TextBlock Grid.Column="1" Text="ScreenXpert" VerticalAlignment="Center"/></Grid></Expander.Header>
+                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="ScreenXpertIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.ScreenXpert}"/><TextBlock Grid.Column="1" Text="ScreenXpert" VerticalAlignment="Center"/></Grid></Expander.Header>
                         <StackPanel>
                             <TextBlock Text="Режим вентиляторов" Style="{StaticResource Caption}" Margin="{StaticResource Gap.FieldLabel}"/>
-                            <ComboBox x:Name="FanSelector" SelectedIndex="0" AutomationProperties.Name="Режим вентиляторов">
-                                <ComboBoxItem Content="Не менять"/><ComboBoxItem Content="Тихий режим"/><ComboBoxItem Content="Режим высокой производительности"/><ComboBoxItem Content="Стандартный режим"/>
-                            </ComboBox>
+                            <CheckBox x:Name="FanPerformance"><TextBlock Text="Режим высокой производительности"/></CheckBox>
+                            <CheckBox x:Name="FanStandard"><TextBlock Text="Стандартный режим"/></CheckBox>
+                            <CheckBox x:Name="FanWhisper"><TextBlock Text="Тихий режим"/></CheckBox>
                         </StackPanel>
                     </Expander>
                     <Expander x:Name="WallpaperSection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="Wallpaper Engine">
-                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="WallpaperEngineIcon" Style="{StaticResource AppCategoryIcon}"/><TextBlock Grid.Column="1" Text="Wallpaper Engine" VerticalAlignment="Center"/></Grid></Expander.Header>
-                        <CheckBox x:Name="WallpaperPlaybackSwitch" Style="{StaticResource TriStateSwitch}" ToolTip="Выкл. — поставить все обои на паузу; Вкл. — продолжить. Применяется только к уже запущенному Wallpaper Engine."><TextBlock Text="Воспроизведение обоев"/></CheckBox>
+                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="WallpaperEngineIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.WallpaperEngine}"/><TextBlock Grid.Column="1" Text="Wallpaper Engine" VerticalAlignment="Center"/></Grid></Expander.Header>
+                        <CheckBox x:Name="WallpaperPlaybackSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Воспроизведение обоев"/></CheckBox>
                     </Expander>
                     <Expander x:Name="ArmourySection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="ARMOURY CRATE">
-                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="ArmouryCrateIcon" Style="{StaticResource AppCategoryIcon}"/><TextBlock Grid.Column="1" Text="ARMOURY CRATE" VerticalAlignment="Center"/></Grid></Expander.Header>
+                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="ArmouryCrateIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.ArmouryCrate}"/><TextBlock Grid.Column="1" Text="ARMOURY CRATE" VerticalAlignment="Center"/></Grid></Expander.Header>
                         <Grid/>
                     </Expander>
                     <Expander x:Name="PowerSection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="Режим питания Windows">
                         <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Style="{StaticResource CategoryIcon}" Text="&#xE7E8;"/><TextBlock Grid.Column="1" Text="Режим питания Windows" VerticalAlignment="Center"/></Grid></Expander.Header>
                         <StackPanel>
-                            <CheckBox x:Name="PowerUnchanged" IsChecked="True"><TextBlock Text="Не менять"/></CheckBox>
                             <CheckBox x:Name="Efficiency"><TextBlock Text="Максимальная эффективность энергосбережения"/></CheckBox>
                             <CheckBox x:Name="Balanced"><TextBlock Text="Сбалансированный"/></CheckBox>
                             <CheckBox x:Name="BestPerformance"><TextBlock Text="Оптимальная производительность"/></CheckBox>
@@ -49,13 +48,12 @@
                         <StackPanel>
                             <TextBlock Text="Экран" Style="{StaticResource Caption}" Margin="{StaticResource Gap.FieldLabel}"/>
                             <ComboBox x:Name="DisplaySelector" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="Экран"/>
-                            <CheckBox x:Name="DisplayEnabled"><TextBlock Text="Изменить частоту обновления"/></CheckBox>
                             <TextBlock Text="Частота обновления" Style="{StaticResource Caption}" Margin="{StaticResource Gap.FieldLabel}"/>
                             <ComboBox x:Name="RefreshSelector" IsEnabled="False" AutomationProperties.Name="Частота обновления"/>
                             <TextBlock x:Name="DisplayUnavailable" Text="Доступные дисплеи не найдены" Style="{StaticResource Caption}" Visibility="Collapsed" Margin="{StaticResource Gap.Subtitle}"/>
-                            <CheckBox x:Name="BrightnessEnabled" Margin="0,12,0,0"><TextBlock Text="Яркость"/></CheckBox>
+                            <TextBlock Text="Яркость" Style="{StaticResource Caption}" Margin="{StaticResource Gap.FieldLabel}"/>
                             <Grid Margin="0,4,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                <TextBlock FontFamily="{StaticResource Font.Icons}" Text="&#xE706;" FontSize="20" Margin="0,0,16,0" VerticalAlignment="Center"/>
+                                <ToggleButton x:Name="BrightnessToggleButton" Style="{StaticResource BrightnessToggle}" Margin="0,0,12,0" AutomationProperties.Name="Изменять яркость"><TextBlock FontFamily="{StaticResource Font.Icons}" Text="&#xE706;" FontSize="20"/></ToggleButton>
                                 <Slider x:Name="BrightnessSlider" Grid.Column="1" Style="{StaticResource BrightnessSlider}" Minimum="0" Maximum="100" Value="100" IsEnabled="False" TickFrequency="1" IsSnapToTickEnabled="True" SmallChange="1" LargeChange="10" AutomationProperties.Name="Яркость, в процентах"/>
                             </Grid>
                         </StackPanel>
@@ -66,10 +64,10 @@
                             <CheckBox x:Name="DarkThemeSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Тёмная тема Windows и приложений"/></CheckBox>
                             <CheckBox x:Name="SleepTimeoutSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Спящий режим через 3 минуты бездействия"/></CheckBox>
                             <CheckBox x:Name="ScreenTimeoutSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Выключение экрана через 3 минуты бездействия"/></CheckBox>
-                            <CheckBox x:Name="HdrSwitch" Style="{StaticResource TriStateSwitch}" ToolTip="Изменяется HDR у экрана, выбранного в разделе «Дисплей»"><TextBlock Text="HDR выбранного экрана"/></CheckBox>
-                            <CheckBox x:Name="PresenceSleepSwitch" Style="{StaticResource TriStateSwitch}" ToolTip="Датчик присутствия; Windows управляет последующим переходом в сон"><TextBlock Text="Выключать экран при уходе"/></CheckBox>
+                            <CheckBox x:Name="HdrSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="HDR выбранного экрана"/></CheckBox>
+                            <CheckBox x:Name="PresenceSleepSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Выключать экран при уходе"/></CheckBox>
                             <CheckBox x:Name="PresenceDimSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Затемнять экран при отведении взгляда"/></CheckBox>
-                            <CheckBox x:Name="ContentBrightnessSwitch" Style="{StaticResource TriStateSwitch}" ToolTip="Изменяется оптимизация яркости у экрана, выбранного в разделе «Дисплей»"><TextBlock Text="Оптимизация яркости и контрастности под содержимое"/></CheckBox>
+                            <CheckBox x:Name="ContentBrightnessSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Оптимизация яркости и контрастности под содержимое"/></CheckBox>
                             <CheckBox x:Name="AdaptiveBrightnessSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Автоматическая яркость при изменении освещения"/></CheckBox>
                             <CheckBox x:Name="ScreenSaverSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Заставка"/></CheckBox>
                             <CheckBox x:Name="UsbPowerSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Экономия энергии USB при выключенном экране"/></CheckBox>
@@ -91,8 +89,8 @@
             <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="PresetAutonomyButton" Content="Автономность" Margin="{StaticResource Gap.Icon}" ToolTip="Заменить действия пресетом автономности"/>
-                    <Button x:Name="PresetPerformanceButton" Content="Производительность" ToolTip="Заменить действия пресетом производительности"/>
+                    <Button x:Name="PresetAutonomyButton" Content="Автономность" Margin="{StaticResource Gap.Icon}"/>
+                    <Button x:Name="PresetPerformanceButton" Content="Производительность"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="IconButton" Width="{StaticResource Size.IconButton}" Margin="{StaticResource Gap.Icon}" Padding="4" ToolTip="Выбрать иконку" AutomationProperties.Name="Выбрать иконку"><Image x:Name="CurrentIcon" Width="24" Height="24"/></Button>
