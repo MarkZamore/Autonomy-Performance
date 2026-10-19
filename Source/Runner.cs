@@ -43,7 +43,7 @@ internal static class Runner
                 }
                 if(c.FanProfile!=0) {
                     if(preservePower){
-                        StepResult fanResult=FanControl.SetProfile(c.FanProfile,skipFan);
+                        StepResult fanResult=FanControl.SetProfile(c.FanProfile==3?0:c.FanProfile,skipFan);
                         report.Steps.Add(fanResult);
                         fanMayHaveChanged=fanResult.Status!="skipped";
                     }
@@ -65,6 +65,7 @@ internal static class Runner
                 if(c.ContentBrightness!=0){DisplayChangeResult cabc=HdrControl.ApplyContentBrightness(c.DisplayId,c.ContentBrightness==1);report.Steps.Add(new StepResult("ContentBrightness",cabc.Status,cabc.Detail));}
                 if(c.Brightness>=0)report.Steps.AddRange(WindowsControl.SetBrightness(c.Brightness));
                 if(c.EnergySaver==1)report.Steps.AddRange(WindowsControl.SetEnergySaver(true));
+                if(c.WallpaperPlayback!=0)report.Steps.Add(WallpaperControl.SetPlayback(c.WallpaperPlayback==1));
             }else report.Mode="status";
             if(reportPath!=null)report.State=new ModeSnapshot{Windows=WindowsControl.ReadState(),Fan=FanControl.ReadState()};
             foreach(StepResult step in report.Steps)if(step.Status=="error")return 1;

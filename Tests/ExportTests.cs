@@ -69,13 +69,13 @@ public static class ExportTests {
  [MethodImpl(MethodImplOptions.NoInlining)] static void Run(string output){
   Directory.CreateDirectory(output);string exe=Path.Combine(output,"Roundtrip.exe");byte[] defaultIcon=EmbeddedAssets.Read("Icon0");
   int cases=0;
-  for(int e=0;e<=2;e++)for(int p=0;p<=3;p++)for(int f=0;f<=2;f++)for(int b=0;b<=1;b++)for(int d=0;d<=2;d++){
+  for(int e=0;e<=2;e++)for(int p=0;p<=3;p++)for(int f=0;f<=3;f++)for(int b=0;b<=1;b++)for(int d=0;d<=2;d++){
    ModeConfiguration c=new ModeConfiguration{EnergySaver=e,PowerMode=p,FanProfile=f,Brightness=b==1?100:-1,DarkTheme=d};
    if(!c.HasActions)continue;
    ExecutableExporter.Save(exe,c,defaultIcon);ModeConfiguration r=PeConfiguration.Read(exe);
    Assert(r.Version==2&&r.EnergySaver==e&&r.PowerMode==p&&r.FanProfile==f&&r.Brightness==(b==1?100:-1)&&r.DarkTheme==d,"Configuration roundtrip");cases++;
   }
-  Assert(cases==215,"All non-empty independent action combinations");
+  Assert(cases==287,"All non-empty independent action combinations");
   foreach(int brightness in new[]{-1,0,1,50,99,100}){
    ModeConfiguration c=new ModeConfiguration{EnergySaver=1,Brightness=brightness};ExecutableExporter.Save(exe,c,defaultIcon);
    Assert(PeConfiguration.Read(exe).Brightness==brightness,"Brightness percentage and unchanged sentinel roundtrip");

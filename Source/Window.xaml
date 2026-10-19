@@ -18,14 +18,22 @@
                             <CheckBox x:Name="EnergySaverSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Энергосбережение"/></CheckBox>
                         </StackPanel>
                     </Expander>
-                    <Expander x:Name="PerformanceSection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="Вентиляторы">
-                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Style="{StaticResource CategoryIcon}" Text="&#xEC4A;"/><TextBlock Grid.Column="1" Text="Вентиляторы" VerticalAlignment="Center"/></Grid></Expander.Header>
+                    <Expander x:Name="PerformanceSection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="ScreenXpert">
+                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="ScreenXpertIcon" Style="{StaticResource AppCategoryIcon}"/><TextBlock Grid.Column="1" Text="ScreenXpert" VerticalAlignment="Center"/></Grid></Expander.Header>
                         <StackPanel>
                             <TextBlock Text="Режим вентиляторов" Style="{StaticResource Caption}" Margin="{StaticResource Gap.FieldLabel}"/>
                             <ComboBox x:Name="FanSelector" SelectedIndex="0" AutomationProperties.Name="Режим вентиляторов">
-                                <ComboBoxItem Content="Не менять"/><ComboBoxItem Content="Тихий"/><ComboBoxItem Content="Производительный"/>
+                                <ComboBoxItem Content="Не менять"/><ComboBoxItem Content="Тихий режим"/><ComboBoxItem Content="Режим высокой производительности"/><ComboBoxItem Content="Стандартный режим"/>
                             </ComboBox>
                         </StackPanel>
+                    </Expander>
+                    <Expander x:Name="WallpaperSection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="Wallpaper Engine">
+                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="WallpaperEngineIcon" Style="{StaticResource AppCategoryIcon}"/><TextBlock Grid.Column="1" Text="Wallpaper Engine" VerticalAlignment="Center"/></Grid></Expander.Header>
+                        <CheckBox x:Name="WallpaperPlaybackSwitch" Style="{StaticResource TriStateSwitch}" ToolTip="Выкл. — поставить все обои на паузу; Вкл. — продолжить. Применяется только к уже запущенному Wallpaper Engine."><TextBlock Text="Воспроизведение обоев"/></CheckBox>
+                    </Expander>
+                    <Expander x:Name="ArmourySection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="ARMOURY CRATE">
+                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="ArmouryCrateIcon" Style="{StaticResource AppCategoryIcon}"/><TextBlock Grid.Column="1" Text="ARMOURY CRATE" VerticalAlignment="Center"/></Grid></Expander.Header>
+                        <Grid/>
                     </Expander>
                     <Expander x:Name="PowerSection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="Режим питания Windows">
                         <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Style="{StaticResource CategoryIcon}" Text="&#xE7E8;"/><TextBlock Grid.Column="1" Text="Режим питания Windows" VerticalAlignment="Center"/></Grid></Expander.Header>

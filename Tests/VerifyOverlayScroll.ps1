@@ -16,10 +16,10 @@ function Layout($width,$height){$size=[Windows.Size]::new($width,$height);$grid.
 $results=@()
 try{
 foreach($size in @(@{Width=984;Height=661},@{Width=804;Height=521})){
-foreach($name in @('AutonomySection','PerformanceSection','PowerSection','DisplaySection')){$win.FindName($name).IsExpanded=$false}
+foreach($name in @('AutonomySection','PerformanceSection','WallpaperSection','ArmourySection','PowerSection','DisplaySection','AdditionalSection')){$win.FindName($name).IsExpanded=$false}
 Layout $size.Width $size.Height
 $columns=$scroll.Parent.ColumnDefinitions;Assert ([math]::Abs($columns[0].ActualWidth-2*$columns[2].ActualWidth) -lt 1) 'Settings and preview ratio is not 2:1';$before=$win.FindName('AutonomySection').ActualWidth;$pointBefore=$win.FindName('AutonomySection').TranslatePoint([Windows.Point]::new(0,0),$grid)
-Assert ($scroll.ComputedVerticalScrollBarVisibility -eq [Windows.Visibility]::Collapsed) 'Scrollbar visible for collapsed categories'
+if($size.Height -ge 661){Assert ($scroll.ComputedVerticalScrollBarVisibility -eq [Windows.Visibility]::Collapsed) 'Scrollbar visible when collapsed categories fit'}else{Assert ($scroll.ComputedVerticalScrollBarVisibility -eq [Windows.Visibility]::Visible) 'Seven categories must remain scrollable at minimum height'}
 foreach($name in @('AutonomySection','PerformanceSection','PowerSection','DisplaySection')){$win.FindName($name).IsExpanded=$true}
 Layout $size.Width $size.Height
 $after=$win.FindName('AutonomySection').ActualWidth;$pointAfter=$win.FindName('AutonomySection').TranslatePoint([Windows.Point]::new(0,0),$grid)

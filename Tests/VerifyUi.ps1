@@ -40,7 +40,7 @@ try {
     Assert ($win.Title -eq 'Autonomy&Performance') 'Window title does not match executable name'
     Assert ($win.Width -eq 1000 -and $win.Height -eq 700 -and $win.MinWidth -eq 820 -and $win.MinHeight -eq 560) 'Window geometry differs from approved layout'
     Assert ($preview.IsReadOnly -and $preview.Text -eq 'Действия не выбраны.') 'Preview initial state failed'
-    foreach($section in @('AutonomySection','PerformanceSection','PowerSection','DisplaySection','AdditionalSection')){Assert (-not $win.FindName($section).IsExpanded) ('Section not collapsed: '+$section)}
+    foreach($section in @('AutonomySection','PerformanceSection','WallpaperSection','ArmourySection','PowerSection','DisplaySection','AdditionalSection')){Assert (-not $win.FindName($section).IsExpanded) ('Section not collapsed: '+$section)}
     Assert (-not $ui.Configuration.HasActions -and -not $win.FindName('SaveButton').IsEnabled) 'Initial selection is not empty'
     $win.FindName('AutonomySection').IsExpanded=$true
     $win.FindName('EnergySaverSwitch').IsChecked=$true;$win.FindName('FanSelector').SelectedIndex=1
@@ -92,5 +92,5 @@ try {
     $results+=Render-Ui @{Name='expanded-bottom';Width=984;Height=661;Scale=1}
     $results|ConvertTo-Json -Depth 4|Set-Content -LiteralPath (Join-Path $art 'ui-results.json') -Encoding UTF8
     $results
-    'PASS: Russian UI, empty/collapsed start, exclusive power selection, independent saver/power, live preview, system fonts, themed states, all five sections and footer geometry. DPI images use offscreen rendering; live native DPI/theme validation is separate.'
+    'PASS: Russian UI, empty/collapsed start, exclusive power selection, independent saver/power, live preview, system fonts, themed states, all seven sections and footer geometry. DPI images use offscreen rendering; live native DPI/theme validation is separate.'
 } finally {$win.Close()}

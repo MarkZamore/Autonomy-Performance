@@ -6,7 +6,7 @@ public sealed class ConstructorWindow
     public readonly IconSelection IconChoice=new IconSelection();
     readonly CheckBox[] powerChecks,switches;readonly Button save,iconButton;readonly Image currentIcon;readonly Popup popup;readonly UniformGrid icons;readonly TextBlock status;readonly TextBox preview;
     readonly CheckBox displayEnabled,brightnessEnabled;readonly Slider brightnessSlider;readonly ComboBox displaySelector,refreshSelector,fanSelector;readonly TextBlock displayUnavailable;
-    static readonly string[] switchNames={"EnergySaverSwitch","DarkThemeSwitch","SleepTimeoutSwitch","ScreenTimeoutSwitch","HdrSwitch","PresenceSleepSwitch","PresenceDimSwitch","ContentBrightnessSwitch","AdaptiveBrightnessSwitch","ScreenSaverSwitch","UsbPowerSwitch"};
+    static readonly string[] switchNames={"EnergySaverSwitch","DarkThemeSwitch","SleepTimeoutSwitch","ScreenTimeoutSwitch","HdrSwitch","PresenceSleepSwitch","PresenceDimSwitch","ContentBrightnessSwitch","AdaptiveBrightnessSwitch","ScreenSaverSwitch","UsbPowerSwitch","WallpaperPlaybackSwitch"};
     bool updating,updatingDisplays;
     string savedScriptState;
     readonly Dictionary<Expander,int> categoryAnimationVersions=new Dictionary<Expander,int>();
@@ -18,6 +18,10 @@ public sealed class ConstructorWindow
         WindowsTheme.Initialize(Application.Current);
         using(Stream content=Assembly.GetExecutingAssembly().GetManifestResourceStream("Window"))Window=(Window)XamlReader.Load(content);
         Window.Icon=ImageSource(EmbeddedAssets.Read("Icon0"));
+        ((Image)Window.FindName("ScreenXpertIcon")).Source=ImageSource(EmbeddedAssets.Read("AppScreenXpert"));
+        ((Image)Window.FindName("WallpaperEngineIcon")).Source=ImageSource(EmbeddedAssets.Read("AppWallpaperEngine"));
+        CroppedBitmap armouryIcon=new CroppedBitmap(ImageSource(EmbeddedAssets.Read("AppArmouryCrate")),new Int32Rect(0,0,452,460));armouryIcon.Freeze();
+        ((Image)Window.FindName("ArmouryCrateIcon")).Source=armouryIcon;
         powerChecks=new CheckBox[4];string[] powerNames={"PowerUnchanged","Efficiency","Balanced","BestPerformance"};
         for(int i=0;i<powerNames.Length;i++){powerChecks[i]=(CheckBox)Window.FindName(powerNames[i]);powerChecks[i].Checked+=PowerSelectionChanged;powerChecks[i].Unchecked+=PowerSelectionChanged;}
         switches=new CheckBox[switchNames.Length];for(int i=0;i<switchNames.Length;i++){
@@ -43,7 +47,7 @@ public sealed class ConstructorWindow
         ((Expander)Window.FindName("DisplaySection")).Expanded+=delegate{RefreshDisplays();};
         ((Button)Window.FindName("PresetPerformanceButton")).Click+=delegate{ApplyPreset(true);};
         ((Button)Window.FindName("PresetAutonomyButton")).Click+=delegate{ApplyPreset(false);};
-        foreach(string categoryName in new[]{"AutonomySection","PerformanceSection","PowerSection","DisplaySection","AdditionalSection"}){
+        foreach(string categoryName in new[]{"AutonomySection","PerformanceSection","WallpaperSection","ArmourySection","PowerSection","DisplaySection","AdditionalSection"}){
             Expander category=(Expander)Window.FindName(categoryName);
             category.Expanded+=CategoryStateChanged;category.Collapsed+=CategoryStateChanged;
         }
@@ -87,7 +91,7 @@ public sealed class ConstructorWindow
                 PowerMode=powerChecks[1].IsChecked==true?1:powerChecks[2].IsChecked==true?2:powerChecks[3].IsChecked==true?3:0,
                 DarkTheme=SwitchValue(switches[1]),SleepTimeout=SwitchValue(switches[2]),ScreenTimeout=SwitchValue(switches[3]),Hdr=hdr,
                 PresenceSleep=SwitchValue(switches[5]),PresenceDim=SwitchValue(switches[6]),ContentBrightness=contentBrightness,
-                AdaptiveBrightness=SwitchValue(switches[8]),ScreenSaver=SwitchValue(switches[9]),UsbPower=SwitchValue(switches[10])};
+                AdaptiveBrightness=SwitchValue(switches[8]),ScreenSaver=SwitchValue(switches[9]),UsbPower=SwitchValue(switches[10]),WallpaperPlayback=SwitchValue(switches[11])};
         }
     }
     static int SwitchValue(CheckBox control){return control.IsChecked.HasValue?(control.IsChecked.Value?1:2):0;}
@@ -172,6 +176,8 @@ public sealed class ConstructorWindow
         ModeConfiguration c=Configuration;List<string> actions=new List<string>();
         if(c.EnergySaver==1)actions.Add("Включить энергосбережение");else if(c.EnergySaver==2)actions.Add("Выключить энергосбережение");
         if(c.FanProfile==1)actions.Add("Тихий режим вентиляторов");else if(c.FanProfile==2)actions.Add("Производительный режим вентиляторов");
+        else if(c.FanProfile==3)actions.Add("Стандартный режим вентиляторов");
+        AddSwitchAction(actions,c.WallpaperPlayback,"Продолжить воспроизведение обоев Wallpaper Engine","Поставить обои Wallpaper Engine на паузу");
         if(c.Brightness>=0)actions.Add("Яркость "+c.Brightness+"%");
         if(c.PowerMode==1)actions.Add("Максимальная эффективность энергосбережения");else if(c.PowerMode==2)actions.Add("Сбалансированный");else if(c.PowerMode==3)actions.Add("Оптимальная производительность");
         if(c.RefreshRate!=0){DisplayInfo d=(DisplayInfo)displaySelector.SelectedItem;actions.Add(d.Label+" — "+c.RefreshRate+" Гц");}
