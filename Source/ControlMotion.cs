@@ -29,6 +29,7 @@ public static class ControlMotion
         if(move==null||move.IsFrozen){move=move==null?new TranslateTransform(23,0):move.Clone();thumb.RenderTransform=move;}
         bool animate=Animate(control,requested);bool? value=control.IsChecked;
         bool taskbar=control.Name=="TaskbarRepairSwitch";
+        bool binary=control.Name=="BrightnessToggleButton";
         TextBlock label=control.Template.FindName("SwitchState",control) as TextBlock;
         if(label!=null){
             string on="Вкл.",off="Выкл.";
@@ -39,42 +40,13 @@ public static class ControlMotion
         }
         Color blue=((SolidColorBrush)control.FindResource("Brush.CheckFill")).Color;
         Color dark=((SolidColorBrush)control.FindResource("Brush.CheckMark")).Color;
-        Color background=taskbar?(value==false?Color.FromArgb(77,97,113,128):blue):value==true?blue:value==false?dark:Color.FromArgb(77,97,113,128);
-        Color foreground=taskbar?(value==false?blue:dark):value==true?dark:blue;
+        Color background=binary?(value==true?blue:Color.FromArgb(77,97,113,128)):taskbar?(value==false?Color.FromArgb(77,97,113,128):blue):value==true?blue:value==false?dark:Color.FromArgb(77,97,113,128);
+        Color foreground=binary?(value==true?dark:blue):taskbar?(value==false?blue:dark):value==true?dark:blue;
         Move(move,TranslateTransform.XProperty,value==true?46:value==false?0:23,animate);
         Paint(track,Border.BackgroundProperty,background,animate);
         Paint(thumb,Shape.FillProperty,foreground,animate);
     }
-    public static void AttachBrightness(ToggleButton control)
-    {
-        control.Checked+=delegate { UpdateBrightness(control,true); };
-        control.Unchecked+=delegate { UpdateBrightness(control,true); };
-        control.Loaded+=delegate { UpdateBrightness(control,false); };
-        UpdateBrightness(control,false);
-    }
-    static void UpdateBrightness(ToggleButton control,bool requested)
-    {
-        control.ApplyTemplate();
-        Path slash=control.Template.FindName("SunSlash",control) as Path;
-        FrameworkElement sun=control.Template.FindName("BrightnessSun",control) as FrameworkElement;
-        if(slash==null||sun==null)return;
-        bool enabled=control.IsChecked==true,animate=Animate(control,requested);
-        Move(slash,UIElement.OpacityProperty,enabled?0:1,animate);
-        ScaleTransform scale=slash.RenderTransform as ScaleTransform;
-        if(scale!=null&&scale.IsFrozen){scale=scale.Clone();slash.RenderTransform=scale;}
-        if(scale!=null){Move(scale,ScaleTransform.ScaleXProperty,enabled?0.1:1,animate);Move(scale,ScaleTransform.ScaleYProperty,enabled?0.1:1,animate);}
-        RotateTransform turn=sun.RenderTransform as RotateTransform;
-        if(turn!=null&&turn.IsFrozen){turn=turn.Clone();sun.RenderTransform=turn;}
-        if(turn!=null)Move(turn,RotateTransform.AngleProperty,enabled?0:-12,animate);
-    }
     static void Move(Animatable target,DependencyProperty property,double value,bool animate)
-    {
-        double from=(double)target.GetValue(property);
-        target.BeginAnimation(property,null);target.SetValue(property,value);
-        if(animate&&Math.Abs(from-value)>0.001)target.BeginAnimation(property,new DoubleAnimation(from,value,TimeSpan.FromMilliseconds(DurationMilliseconds)){
-            EasingFunction=new CubicEase{EasingMode=EasingMode.EaseOut},FillBehavior=FillBehavior.Stop});
-    }
-    static void Move(UIElement target,DependencyProperty property,double value,bool animate)
     {
         double from=(double)target.GetValue(property);
         target.BeginAnimation(property,null);target.SetValue(property,value);

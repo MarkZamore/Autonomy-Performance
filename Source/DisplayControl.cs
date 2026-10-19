@@ -1,9 +1,9 @@
 ﻿using System;using System.Collections.Generic;using System.Runtime.InteropServices;
 public sealed class DisplayInfo {
- public string MonitorId;public string DeviceName;public string Label;public uint Width,Height,CurrentRate;public List<uint> Rates=new List<uint>();public List<DisplayResolution> Resolutions=new List<DisplayResolution>();
+ public string MonitorId;public string DeviceName;public string Label;public uint Width,Height,CurrentRate,RecommendedWidth,RecommendedHeight;public List<uint> Rates=new List<uint>();public List<DisplayResolution> Resolutions=new List<DisplayResolution>();
  public override string ToString(){return Label;}
 }
-public sealed class DisplayResolution{public uint Width,Height;public List<uint> Rates=new List<uint>();public override string ToString(){return Width==0?"Не менять разрешение":Width+" × "+Height;}}
+public sealed class DisplayResolution{public uint Width,Height;public bool IsRecommended;public List<uint> Rates=new List<uint>();public override string ToString(){return Width==0?"Не менять разрешение":Width+" × "+Height+(IsRecommended?" (рекомендуется)":"");}}
 public sealed class DisplayChangeResult {public string Status,Detail;public DisplayChangeResult(string status,string detail){Status=status;Detail=detail;}}
 public static class DisplayControl {
  [StructLayout(LayoutKind.Sequential,CharSet=CharSet.Unicode)]struct Device{public uint Size;[MarshalAs(UnmanagedType.ByValTStr,SizeConst=32)]public string Name;[MarshalAs(UnmanagedType.ByValTStr,SizeConst=128)]public string Description;public uint Flags;[MarshalAs(UnmanagedType.ByValTStr,SizeConst=128)]public string Id;[MarshalAs(UnmanagedType.ByValTStr,SizeConst=128)]public string Key;}
@@ -34,7 +34,9 @@ public static class DisplayControl {
    if(rates.Count==0)continue;
    int screenNumber;string suffix=adapter.Name.Substring(adapter.Name.LastIndexOf("DISPLAY",StringComparison.OrdinalIgnoreCase)+7);
    if(!Int32.TryParse(suffix,out screenNumber))screenNumber=result.Count+1;
-   result.Add(new DisplayInfo{MonitorId=monitor.Id,DeviceName=adapter.Name,Label="Экран "+screenNumber+" - "+current.Width+" × "+current.Height,Width=current.Width,Height=current.Height,CurrentRate=current.Frequency,Rates=new List<uint>(rates),Resolutions=resolutions});
+   uint recommendedWidth,recommendedHeight;HdrControl.TryInspectPreferredResolution(monitor.Id,out recommendedWidth,out recommendedHeight);
+   foreach(DisplayResolution r in resolutions)r.IsRecommended=r.Width==recommendedWidth&&r.Height==recommendedHeight;
+   result.Add(new DisplayInfo{MonitorId=monitor.Id,DeviceName=adapter.Name,Label="Экран "+screenNumber+" - "+current.Width+" × "+current.Height,Width=current.Width,Height=current.Height,CurrentRate=current.Frequency,RecommendedWidth=recommendedWidth,RecommendedHeight=recommendedHeight,Rates=new List<uint>(rates),Resolutions=resolutions});
   }
   return result;
  }

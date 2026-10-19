@@ -65,11 +65,7 @@ internal static class Runner
                 // Clear a selected saver override before HDR; brightness follows
                 // display reconfiguration so a driver transition cannot reset it.
                 if(c.EnergySaver==2)report.Steps.AddRange(WindowsControl.SetEnergySaver(false));
-                if(c.RefreshRate!=0||c.DisplayWidth!=0){DisplayChangeResult display=DisplayControl.Apply(c.DisplayId,c.RefreshRate,c.DisplayWidth,c.DisplayHeight);report.Steps.Add(new StepResult("DisplayRefreshRate",display.Status,display.Detail));}
-                if(c.Hdr!=0){DisplayChangeResult hdr=HdrControl.Apply(c.DisplayId,c.Hdr==1);report.Steps.Add(new StepResult("DisplayHdr",hdr.Status,hdr.Detail));}
-                if(c.ContentBrightness!=0){DisplayChangeResult cabc=HdrControl.ApplyContentBrightness(c.DisplayId,c.ContentBrightness);report.Steps.Add(new StepResult("ContentBrightness",cabc.Status,cabc.Detail));}
-                if(c.DisplayScale!=0){DisplayChangeResult scale=HdrControl.ApplyScale(c.DisplayId,c.DisplayScale);report.Steps.Add(new StepResult("DisplayScale",scale.Status,scale.Detail));}
-                if(c.DynamicRefresh!=0){DisplayChangeResult dynamicRate=HdrControl.ApplyDynamic(c.DisplayId,c.DynamicRefresh==1);report.Steps.Add(new StepResult("DynamicRefresh",dynamicRate.Status,dynamicRate.Detail));}
+                foreach(DisplayModeConfiguration display in c.GetDisplayActions()) ApplyDisplay(report,display);
                 if(c.Brightness>=0)report.Steps.AddRange(WindowsControl.SetBrightness(c.Brightness));
                 if(c.NightLight!=0)report.Steps.Add(NightLightControl.Apply(c.NightLight==1,c.NightLightStrength));
                 if(c.EnergySaver==1)report.Steps.AddRange(WindowsControl.SetEnergySaver(true));
@@ -88,5 +84,28 @@ internal static class Runner
             try{if(acquired&&gate!=null)gate.ReleaseMutex();}catch{}
             try{if(gate!=null)gate.Dispose();}catch{}
         }
+    }
+    static void ApplyDisplay(RunReport report,DisplayModeConfiguration display)
+    {
+        if(display.RefreshRate!=0||display.DisplayWidth!=0)
+            AddDisplayStep(report,display.DisplayId,"DisplayRefreshRate",delegate{return DisplayControl.Apply(display.DisplayId,display.RefreshRate,display.DisplayWidth,display.DisplayHeight);});
+        if(display.Hdr!=0)
+            AddDisplayStep(report,display.DisplayId,"DisplayHdr",delegate{return HdrControl.Apply(display.DisplayId,display.Hdr==1);});
+        if(display.ContentBrightness!=0)
+            AddDisplayStep(report,display.DisplayId,"ContentBrightness",delegate{return HdrControl.ApplyContentBrightness(display.DisplayId,display.ContentBrightness);});
+        if(display.DisplayScale!=0)
+            AddDisplayStep(report,display.DisplayId,"DisplayScale",delegate{return HdrControl.ApplyScale(display.DisplayId,display.DisplayScale);});
+        if(display.DynamicRefresh!=0)
+            AddDisplayStep(report,display.DisplayId,"DynamicRefresh",delegate{return HdrControl.ApplyDynamic(display.DisplayId,display.DynamicRefresh==1);});
+        if(display.Brightness>=0) {
+            try { StepResult result=DisplayBrightnessControl.Apply(display.DisplayId,display.Brightness);result.Detail="["+display.DisplayId+"] "+result.Detail;report.Steps.Add(result); }
+            catch(Exception ex) { report.Steps.Add(new StepResult("DisplayBrightness","error","["+display.DisplayId+"] "+ex.Message)); }
+        }
+    }
+    static void AddDisplayStep(RunReport report,string displayId,string name,Func<DisplayChangeResult> action)
+    {
+        // A failed operation on one screen must not discard the remaining screens/actions.
+        try { DisplayChangeResult result=action(); report.Steps.Add(new StepResult(name,result.Status,"["+displayId+"] "+result.Detail)); }
+        catch(Exception ex) { report.Steps.Add(new StepResult(name,"error","["+displayId+"] "+ex.Message)); }
     }
 }

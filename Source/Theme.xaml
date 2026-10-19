@@ -134,23 +134,16 @@
         </ControlTemplate></Setter.Value></Setter>
     </Style>
 
+    <Style x:Key="BinaryActionSwitch" TargetType="CheckBox" BasedOn="{StaticResource TriStateSwitch}">
+        <Setter Property="IsThreeState" Value="False"/><Setter Property="IsChecked" Value="False"/>
+    </Style>
+
     <Style x:Key="BrightnessTrackButton" TargetType="RepeatButton">
         <Setter Property="Focusable" Value="False"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="RepeatButton"><Border Background="Transparent"><Border Height="4" Background="{TemplateBinding Background}" CornerRadius="2" VerticalAlignment="Center"/></Border></ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style x:Key="BrightnessThumb" TargetType="Thumb">
         <Setter Property="Width" Value="24"/><Setter Property="Height" Value="28"/>
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Thumb"><Grid Background="Transparent"><Ellipse Width="24" Height="24" Fill="#454B50"/><Ellipse x:Name="SliderThumbCenter" Width="12" Height="12" Fill="{DynamicResource Brush.CheckFill}"/></Grid><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="SliderThumbCenter" Property="Width" Value="14"/><Setter TargetName="SliderThumbCenter" Property="Height" Value="14"/></Trigger><Trigger Property="IsDragging" Value="True"><Setter TargetName="SliderThumbCenter" Property="Width" Value="10"/><Setter TargetName="SliderThumbCenter" Property="Height" Value="10"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
-    </Style>
-    <Style x:Key="BrightnessToggle" TargetType="ToggleButton">
-        <Setter Property="Width" Value="36"/><Setter Property="Height" Value="36"/><Setter Property="Foreground" Value="{DynamicResource Brush.TextMuted}"/><Setter Property="Background" Value="Transparent"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton"><Border x:Name="BrightnessButtonSurface" Background="{TemplateBinding Background}" CornerRadius="{StaticResource Radius.Control}"><Grid Width="20" Height="20">
-            <Grid x:Name="BrightnessSun"><Grid.RenderTransform><RotateTransform CenterX="10" CenterY="10" Angle="-12"/></Grid.RenderTransform><Ellipse Width="8" Height="8" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.4"/><Path Data="M10,0.8 V3 M10,17 V19.2 M0.8,10 H3 M17,10 H19.2 M3.5,3.5 L5,5 M15,15 L16.5,16.5 M3.5,16.5 L5,15 M15,5 L16.5,3.5" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Grid>
-            <Path x:Name="SunSlash" Data="M3,17 L17,3" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"><Path.RenderTransform><ScaleTransform CenterX="10" CenterY="10"/></Path.RenderTransform></Path>
-        </Grid></Border><ControlTemplate.Triggers>
-            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="BrightnessButtonSurface" Property="Background" Value="{DynamicResource Brush.SurfaceHover}"/></Trigger>
-            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="BrightnessButtonSurface" Property="Background" Value="{DynamicResource Brush.SurfaceHover}"/></Trigger>
-            <Trigger Property="IsPressed" Value="True"><Setter TargetName="BrightnessButtonSurface" Property="Background" Value="{DynamicResource Brush.SurfacePressed}"/></Trigger>
-        </ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style x:Key="BrightnessSlider" TargetType="Slider">
         <Setter Property="Height" Value="36"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/><Setter Property="IsMoveToPointEnabled" Value="True"/>
@@ -229,7 +222,7 @@
     </Style>
     <Style x:Key="PreviewTextBox" TargetType="TextBox">
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text}"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="FontFamily" Value="{StaticResource Font.Family}"/><Setter Property="FontSize" Value="{StaticResource Font.Body}"/><Setter Property="FontWeight" Value="Normal"/><Setter Property="CaretBrush" Value="{DynamicResource Brush.Text}"/><Setter Property="SelectionBrush" Value="{DynamicResource Brush.Accent}"/><Setter Property="SelectionOpacity" Value="0.45"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox"><Grid><ScrollViewer x:Name="PART_ContentHost" Focusable="False" Background="Transparent" Padding="{TemplateBinding Padding}"/><Border x:Name="FocusRing" BorderBrush="{DynamicResource Brush.BorderStrong}" BorderThickness="{StaticResource Border.Control}" CornerRadius="{StaticResource Radius.Control}" IsHitTestVisible="False" Visibility="Collapsed"/></Grid><ControlTemplate.Triggers><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="FocusRing" Property="Visibility" Value="Visible"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="TextBox"><ScrollViewer x:Name="PART_ContentHost" Style="{StaticResource SettingsScrollViewer}" Focusable="False" Background="Transparent" Padding="{TemplateBinding Padding}"/></ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style TargetType="ToolTip"><Setter Property="Background" Value="{DynamicResource Brush.Popup}"/><Setter Property="Foreground" Value="{DynamicResource Brush.Text}"/><Setter Property="BorderBrush" Value="{DynamicResource Brush.Border}"/><Setter Property="Padding" Value="{StaticResource Pad.Control}"/><Setter Property="FontFamily" Value="{StaticResource Font.Family}"/><Setter Property="FontSize" Value="{StaticResource Font.Caption}"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToolTip"><Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{StaticResource Border.Control}" Padding="{TemplateBinding Padding}" CornerRadius="{StaticResource Radius.Control}"><ContentPresenter/></Border></ControlTemplate></Setter.Value></Setter></Style>
 </ResourceDictionary>

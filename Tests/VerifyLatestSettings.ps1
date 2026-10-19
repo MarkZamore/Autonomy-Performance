@@ -6,6 +6,12 @@ Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
 $app=New-Object Windows.Application;$ui=New-Object ConstructorWindow;$win=$ui.Window
 $script:checks=0
 function Assert($condition,$message){$script:checks++;if(-not $condition){throw $message}}
+function Current-DisplayAction {
+ $selected=$win.FindName('DisplaySelector').SelectedItem
+ $entry=@($ui.Configuration.Displays|Where-Object {$_.DisplayId -eq $selected.MonitorId})
+ if($entry.Count){return $entry[0]}
+ $empty=New-Object DisplayModeConfiguration;$empty.DisplayId=$selected.MonitorId;return $empty
+}
 $art=Join-Path $PSScriptRoot 'Artifacts\Latest';[void][IO.Directory]::CreateDirectory($art)
 try{
  Assert ($null -eq $win.FindName('AutonomySection')) 'Removed autonomy category remains'
@@ -22,8 +28,9 @@ try{
   $control=$win.FindName($name);$field=$name.Replace('Switch','');if($field -eq 'TaskbarRepair'){continue}
   foreach($pair in @(@($true,1),@($false,2),@($null,0))){
    $control.IsChecked=$pair[0];$expected=if($control.IsEnabled){$pair[1]}else{0}
-   Assert ($ui.Configuration.$field -eq $expected) ('Switch mapping/capability failed: '+$field)
-   if($expected -ne 0){$path=Join-Path $art ($field+'-'+$expected+'.exe');[ExecutableExporter]::Save($path,$ui.Configuration,[EmbeddedAssets]::Read("Icon0"));Assert ([PeConfiguration]::Read($path).$field -eq $expected) ('Export lost '+$field)}
+   $configuration=if($field -in @('Hdr','DynamicRefresh')){Current-DisplayAction}else{$ui.Configuration}
+   Assert ($configuration.$field -eq $expected) ('Switch mapping/capability failed: '+$field)
+   if($expected -ne 0){$path=Join-Path $art ($field+'-'+$expected+'.exe');[ExecutableExporter]::Save($path,$ui.Configuration,[EmbeddedAssets]::Read("Icon0"));$export=[PeConfiguration]::Read($path);$exportAction=if($field -in @('Hdr','DynamicRefresh')){@($export.Displays|Where-Object {$_.DisplayId -eq $configuration.DisplayId})[0]}else{$export};Assert ($exportAction.$field -eq $expected) ('Export lost '+$field)}
   }
  }
  $task=$win.FindName('TaskbarRepairSwitch')
@@ -35,22 +42,28 @@ try{
  $night.IsChecked=$null
  $display=$win.FindName('DisplaySelector');$resolution=$win.FindName('ResolutionSelector');$rate=$win.FindName('RefreshSelector');$scale=$win.FindName('ScaleSelector');$cabc=$win.FindName('ContentBrightnessSelector')
  Assert ($rate.Items[0].ToString() -eq 'Не менять частоту обновления') 'Wrong neutral refresh caption'
+ Assert ($cabc.Items[0].ToString() -eq 'Не менять яркость с учётом содержимого') 'Wrong neutral content-brightness caption'
+ Assert (-not $win.FindName('BrightnessToggleButton').IsThreeState -and $win.FindName('BrightnessToggleButton').Content -is [Windows.Controls.Grid]) 'Brightness is not a labelled binary switch'
  for($i=0;$i -lt $display.Items.Count;$i++){
   $display.SelectedIndex=$i;$d=$display.SelectedItem
-  foreach($r in $resolution.Items){$resolution.SelectedItem=$r;Assert ($ui.Configuration.DisplayWidth -eq $r.Width -and $ui.Configuration.DisplayHeight -eq $r.Height) 'Resolution mapping failed';if($r.Width -ne 0){Assert ($ui.Configuration.DisplayId -eq $d.MonitorId) 'Resolution lost display identity';Assert (@($rate.Items|Where-Object {$_.Rate -ne 0 -and $_.Rate -notin $r.Rates}).Count -eq 0) 'Invalid refresh/resolution pair offered'}}
+  foreach($r in $resolution.Items){$resolution.SelectedItem=$r;$action=Current-DisplayAction;Assert ($action.DisplayWidth -eq $r.Width -and $action.DisplayHeight -eq $r.Height) 'Resolution mapping failed';if($r.Width -ne 0){Assert ($action.DisplayId -eq $d.MonitorId) 'Resolution lost display identity';Assert (@($rate.Items|Where-Object {$_.Rate -ne 0 -and $_.Rate -notin $r.Rates}).Count -eq 0) 'Invalid refresh/resolution pair offered'};Assert ($r.ToString().Contains('(рекомендуется)') -eq $r.IsRecommended) 'Recommended resolution caption mismatch'}
   $resolution.SelectedIndex=0
-  foreach($s in $scale.Items){$scale.SelectedItem=$s;Assert ($ui.Configuration.DisplayScale -eq $s.Percent) 'Scale mapping failed';if($s.Percent){Assert ($ui.Configuration.DisplayId -eq $d.MonitorId) 'Scale-only action lost display identity'}}
+  foreach($s in $scale.Items){$scale.SelectedItem=$s;$action=Current-DisplayAction;Assert ($action.DisplayScale -eq $s.Percent) 'Scale mapping failed';if($s.Percent){Assert ($action.DisplayId -eq $d.MonitorId) 'Scale-only action lost display identity'};Assert ($s.ToString().Contains('(рекомендуется)') -eq $s.Recommended) 'Recommended scale caption mismatch'}
   $scale.SelectedIndex=0
   $supported=$false;$enabled=$false;$known=[HdrControl]::TryInspect($d.MonitorId,[ref]$supported,[ref]$enabled)
   Assert ($win.FindName('HdrSwitch').IsEnabled -eq ($known -and $supported)) 'HDR capability mismatch'
   $drr=[HdrControl]::InspectDynamic($d.MonitorId,[ref]$enabled);Assert ($win.FindName('DynamicRefreshSwitch').IsEnabled -eq $drr) 'DRR capability mismatch'
-  if($cabc.IsEnabled){foreach($choice in $cabc.Items){$cabc.SelectedItem=$choice;Assert ($ui.Configuration.ContentBrightness -eq $choice.Value) 'CABC selection mismatch'}}
+  Assert ($win.FindName('BrightnessToggleButton').IsEnabled -eq [DisplayBrightnessControl]::Available($d.MonitorId)) 'Brightness capability mismatch'
+  if($cabc.IsEnabled){foreach($choice in $cabc.Items){$cabc.SelectedItem=$choice;Assert ((Current-DisplayAction).ContentBrightness -eq $choice.Value) 'CABC selection mismatch'}}
   $cabc.SelectedIndex=0
  }
  foreach($preset in @($true,$false)){
   foreach($name in $names){$win.FindName($name).IsChecked=$true};$slider.Value=31;if($resolution.Items.Count -gt 1){$resolution.SelectedIndex=1};if($scale.Items.Count -gt 1){$scale.SelectedIndex=1};$ui.ApplyPreset($preset)
   $c=$ui.Configuration
   foreach($field in @('BatteryCare','WallpaperAudio','WallpaperPlayback','WallpaperApplication','TaskbarRepair','DisplayWidth','DisplayHeight','DisplayScale','DynamicRefresh','NightLight','ContentBrightness','PresenceWake','PresenceOnlooker','BatteryPercentage','ClockSeconds')){Assert ($c.$field -eq 0) ('Preset retained '+$field)}
+  $expectedTargets=@($display.Items|Where-Object {$preset -and [DisplayBrightnessControl]::Available($_.MonitorId)})
+  Assert ($c.Displays.Count -eq $expectedTargets.Count) 'Preset retained display changes or omitted capable-panel brightness'
+  foreach($action in $c.Displays){Assert ($action.Brightness -eq 100 -and $action.DisplayWidth -eq 0 -and $action.DisplayHeight -eq 0 -and $action.RefreshRate -eq 0 -and $action.DisplayScale -eq 0 -and $action.Hdr -eq 0 -and $action.DynamicRefresh -eq 0 -and $action.ContentBrightness -eq 0) 'Preset retained a non-brightness display action'}
   Assert ($c.EnergySaver -eq $(if($preset){2}else{1}) -and $c.FanProfile -eq $(if($preset){2}else{1})) 'Preset core changed'
  }
  foreach($tile in $win.FindName('IconGrid').Children){if([int]$tile.Tag -lt 5){Assert (-not [string]::IsNullOrEmpty($tile.ToolTip)) 'Preset icon tooltip missing'}}

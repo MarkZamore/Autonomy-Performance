@@ -46,36 +46,41 @@ try{
     }
     Assert (-not $ui.Configuration.HasActions) 'Clearing both mode groups leaves an action'
     $display=$win.FindName('DisplaySelector');$rates=$win.FindName('RefreshSelector')
-    Assert ($rates.Items.Count -ge 1 -and $rates.SelectedItem.Rate -eq 0 -and $ui.Configuration.RefreshRate -eq 0) 'Refresh list has no neutral initial option'
+    Assert ($rates.Items.Count -ge 1 -and $rates.SelectedItem.Rate -eq 0 -and $ui.Configuration.Displays.Count -eq 0) 'Refresh list has no neutral initial option'
     if($display.Items.Count -gt 0){
         Assert ($rates.IsEnabled) 'Refresh list needs a removed enabling checkbox'
         $rate=@($rates.Items|Where-Object {$_.Rate -gt 0})|Select-Object -First 1
         if($rate){
             $rates.SelectedItem=$rate
-            Assert ($ui.Configuration.RefreshRate -eq $rate.Rate -and $ui.Configuration.DisplayId -eq $display.SelectedItem.MonitorId) 'Refresh choice alone does not create an action'
-            Assert ($win.FindName('ScriptPreview').Text.Contains($display.SelectedItem.Label)) 'Refresh preview lost its display'
+            $target=@($ui.Configuration.Displays|Where-Object {$_.DisplayId -eq $display.SelectedItem.MonitorId})
+            Assert ($target.Count -eq 1 -and $target[0].RefreshRate -eq $rate.Rate) 'Refresh choice alone does not create an action on its display'
+            $screenNumber=$display.SelectedItem.DeviceName -replace '^.*DISPLAY',''
+            Assert ($win.FindName('ScriptPreview').Text.Contains('Экран '+$screenNumber+' - ')) 'Refresh preview lost its numbered display'
             $rates.SelectedIndex=0
-            Assert ($ui.Configuration.RefreshRate -eq 0 -and -not $ui.Configuration.HasActions) 'Neutral refresh choice does not remove its action'
+            Assert ($ui.Configuration.Displays.Count -eq 0 -and -not $ui.Configuration.HasActions) 'Neutral refresh choice does not remove its action'
         }
     }
     $brightness=$win.FindName('BrightnessToggleButton');$slider=$win.FindName('BrightnessSlider')
-    Assert ($brightness -is [Windows.Controls.Primitives.ToggleButton] -and -not $brightness.IsChecked -and -not $slider.IsEnabled) 'Brightness icon is not initially disabled'
+    Assert ($brightness -is [Windows.Controls.CheckBox] -and -not $brightness.IsThreeState -and -not $brightness.IsChecked -and -not $slider.IsEnabled) 'Brightness switch is not initially disabled and binary'
     Toggle $brightness;$slider.Value=37
-    Assert ($slider.IsEnabled -and $ui.Configuration.Brightness -eq 37 -and $win.FindName('ScriptPreview').Text.Contains('37%')) 'Brightness icon does not enable slider/config/preview'
+    $target=@($ui.Configuration.Displays|Where-Object {$_.DisplayId -eq $display.SelectedItem.MonitorId})
+    Assert ($slider.IsEnabled -and $target.Count -eq 1 -and $target[0].Brightness -eq 37 -and $win.FindName('ScriptPreview').Text.Contains('37%')) 'Brightness switch does not enable display slider/config/preview'
     Toggle $brightness
-    Assert (-not $slider.IsEnabled -and $ui.Configuration.Brightness -eq -1 -and $slider.Value -eq 37) 'Disabling brightness does not preserve its editor value'
+    Assert (-not $slider.IsEnabled -and $ui.Configuration.Displays.Count -eq 0 -and $slider.Value -eq 37) 'Disabling brightness does not preserve its editor value'
     Toggle $brightness
-    Assert ($ui.Configuration.Brightness -eq 37) 'Re-enabling brightness lost its value'
+    Assert (@($ui.Configuration.Displays|Where-Object {$_.DisplayId -eq $display.SelectedItem.MonitorId})[0].Brightness -eq 37) 'Re-enabling brightness lost its value'
     Toggle $brightness
     foreach($section in @('PerformanceSection','WallpaperSection','ArmourySection','PowerSection','DisplaySection','AdditionalSection')){$win.FindName($section).IsExpanded=$true}
     $grid=$win.FindName('RootGrid');$grid.Measure([Windows.Size]::new(984,661));$grid.Arrange([Windows.Rect]::new(0,0,984,661));$grid.UpdateLayout()
     $iconButton=$win.FindName('IconButton')
     Assert ($iconButton.ToolTip -eq 'Выбрать иконку') 'Icon button tooltip was removed or renamed'
     $elements=@(Get-UiElements);$tooltipOwners=@($elements|Where-Object {$null -ne [Windows.Controls.ToolTipService]::GetToolTip($_)})
-    foreach($owner in $tooltipOwners){Assert (([object]::ReferenceEquals($owner,$iconButton)) -or ($owner -is [Windows.Controls.Button] -and $owner.Tag -is [int] -and [int]$owner.Tag -lt 5)) 'Unexpected tooltip outside icon choices'}
+    $taskbar=$win.FindName('TaskbarRepairSwitch')
+    foreach($owner in $tooltipOwners){Assert (([object]::ReferenceEquals($owner,$iconButton)) -or ([object]::ReferenceEquals($owner,$taskbar)) -or ($owner -is [Windows.Controls.Button] -and $owner.Tag -is [int] -and [int]$owner.Tag -lt 5)) 'Unexpected tooltip outside icon choices and taskbar repair'}
+    Assert ($taskbar.ToolTip -eq "Режим 1: Главная панель задач и панель задач, в которой открыто окно`nРежим 2: Панель задач, в которой открыто окно") 'Taskbar tooltip does not show the two final modes on separate lines'
     foreach($tile in $win.FindName('IconGrid').Children){Assert (-not [string]::IsNullOrEmpty([Windows.Automation.AutomationProperties]::GetName($tile))) 'Icon tile lost its accessible label'}
     $focusedKey=[Windows.UIElement].GetField('IsKeyboardFocusedPropertyKey',[Reflection.BindingFlags]'Static,NonPublic').GetValue($null)
-    foreach($name in @('PresetAutonomyButton','PresetPerformanceButton','IconButton','SaveButton','DisplaySelector','RefreshSelector')){
+    foreach($name in @('PresetAutonomyButton','PresetPerformanceButton','IconButton','SaveButton','ResetScriptButton','DisplaySelector','RefreshSelector','ScriptPreview')){
         $control=$win.FindName($name);$control.SetValue($focusedKey,$true);$grid.UpdateLayout();Assert-NoRing $control;$control.SetValue($focusedKey,$false)
     }
     # An isolated popup item exercises selection without opening a native window.
@@ -86,6 +91,6 @@ try{
     Assert ($null -ne $mark -and $mark.Visibility -eq 'Visible' -and $mark.Background.ToString() -eq $app.Resources['Brush.CheckFill'].ToString()) 'Selected list item does not use the muted blue indicator'
     Assert-NoRing $item
     $art=Join-Path $PSScriptRoot 'Artifacts\SelectionControls';[void][IO.Directory]::CreateDirectory($art)
-    [pscustomobject]@{Passed=$true;Assertions=$script:assertions;RepeatedClickClears=$true;RefreshWithoutCheckbox=$true;BrightnessIconToggle=$true;OnlyIconChoiceTooltips=$true;NoFocusOutline=$true;ListUsesBlueIndicator=$true;NoSystemSettingsApplied=$true}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $art 'results.json') -Encoding UTF8
-    'PASS: '+$script:assertions+' assertions; repeat-click mode deselection, refresh without checkbox, brightness icon toggle, icon-only tooltips, accessible icon choices and original list styling with muted blue indicator. No system settings applied.'
+    [pscustomobject]@{Passed=$true;Assertions=$script:assertions;RepeatedClickClears=$true;RefreshWithoutCheckbox=$true;BrightnessBinarySwitch=$true;IconAndTaskbarTooltips=$true;NoFocusOutline=$true;ListUsesBlueIndicator=$true;NoSystemSettingsApplied=$true}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $art 'results.json') -Encoding UTF8
+    'PASS: '+$script:assertions+' assertions; repeat-click mode deselection, display refresh without checkbox, binary brightness switch, icon and taskbar tooltips, accessible icon choices and original list styling with muted blue indicator. No system settings applied.'
 }finally{$win.Close()}

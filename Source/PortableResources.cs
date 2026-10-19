@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -159,7 +159,7 @@ public static class PortableResources
     }
     public static byte[] CreateModeExecutable(byte[] template,byte[] configuration,byte[] icon)
     {
-        Require(configuration!=null&&configuration.Length>0&&configuration.Length<=4096);Image image=Parse(template);
+        Require(configuration!=null&&configuration.Length>0&&configuration.Length<=65536);Image image=Parse(template);
         image.Root.Children.Remove(new Key(16));image.Root.Children.Remove(new Key(3));image.Root.Children.Remove(new Key(14));
         Node custom=Child(image.Root,new Key(10),false);if(custom!=null){Require(custom.Children!=null);custom.Children.Remove(new Key(PeConfiguration.ResourceName));}
         Set(image.Root,10,new Key(PeConfiguration.ResourceName),0,configuration);
@@ -173,7 +173,7 @@ public static class PortableResources
     }
     public static byte[] ReadConfiguration(byte[] executable)
     {
-        Image image=Parse(executable);Node types=Child(image.Root,new Key(10),false);Require(types!=null);Node names=Child(types,new Key(PeConfiguration.ResourceName),false);Require(names!=null);Node leaf=Child(names,new Key(0),false);Require(leaf!=null&&leaf.Children==null&&leaf.Data.Length>0&&leaf.Data.Length<=4096);return leaf.Data;
+        Image image=Parse(executable);Node types=Child(image.Root,new Key(10),false);Require(types!=null);Node names=Child(types,new Key(PeConfiguration.ResourceName),false);Require(names!=null);Node leaf=Child(names,new Key(0),false);Require(leaf!=null&&leaf.Children==null&&leaf.Data.Length>0&&leaf.Data.Length<=65536);return leaf.Data;
     }
     public static byte[] RemoveVersion(byte[] executable,out bool changed)
     {

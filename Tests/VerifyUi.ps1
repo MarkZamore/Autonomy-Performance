@@ -9,9 +9,7 @@ $app=New-Object Windows.Application
 $ui=New-Object ConstructorWindow
 function Assert($condition,$message){if(-not $condition){throw $message}}
 function Clear-Actions {
-    $ui.ApplyPreset($false)
-    $win.FindName('EnergySaverSwitch').IsChecked=$null
-    foreach($name in @('FanWhisper','FanPerformance','FanStandard')){$win.FindName($name).IsChecked=$false}
+    $ui.ResetScript()
 }
 function Render-Ui($scenario) {
     $size=[Windows.Size]::new($scenario.Width,$scenario.Height)
@@ -32,6 +30,9 @@ function Render-Ui($scenario) {
     $performanceContentWidth=$performance.DesiredSize.Width-$performance.Margin.Left-$performance.Margin.Right
     $autonomyContentWidth=$autonomy.DesiredSize.Width-$autonomy.Margin.Left-$autonomy.Margin.Right
     Assert ($performance.ActualWidth -ge $performanceContentWidth-1 -and $autonomy.ActualWidth -ge $autonomyContentWidth-1) ('Preset text clipped: '+$scenario.Name)
+    $battery=$win.FindName('BatteryWear');$batteryPoint=$battery.TranslatePoint([Windows.Point]::new(0,0),$grid)
+    Assert ($batteryPoint.X+$battery.ActualWidth -le $icon.TranslatePoint([Windows.Point]::new(0,0),$grid).X) ('Battery information overlaps export controls: '+$scenario.Name)
+    Assert ($batteryPoint.Y+$battery.ActualHeight -le $grid.ActualHeight+1) ('Battery information is outside the footer: '+$scenario.Name)
     [pscustomobject]@{Scenario=$scenario.Name;ClientWidth=$scenario.Width;ClientHeight=$scenario.Height;Scale=$scenario.Scale;ContentWidth=$grid.ActualWidth;ContentHeight=$grid.ActualHeight;FooterVisible=$true;Image=$path}
 }
 $win=$ui.Window
@@ -44,11 +45,11 @@ try {
     Assert (-not $ui.Configuration.HasActions -and -not $win.FindName('SaveButton').IsEnabled) 'Initial selection is not empty'
     $win.FindName('PowerSection').IsExpanded=$true
     $win.FindName('EnergySaverSwitch').IsChecked=$true;$win.FindName('FanWhisper').IsChecked=$true
-    Assert ($preview.Text -eq "Включить энергосбережение`r`n`r`nТихий режим вентиляторов") 'Autonomy preview is not localized or separated into unnumbered paragraphs'
+    Assert ($preview.Text -eq "Включить энергосбережение`r`n`r`nТихий режим вентилятора") 'Autonomy preview is not localized or separated into unnumbered paragraphs'
     $win.FindName('FanPerformance').IsChecked=$true
-    Assert ($preview.Text -eq "Включить энергосбережение`r`n`r`nПроизводительный режим вентиляторов") 'Fan conflict not reflected in preview'
+    Assert ($preview.Text -eq "Включить энергосбережение`r`n`r`nПроизводительный режим вентилятора") 'Fan conflict not reflected in preview'
     $win.FindName('EnergySaverSwitch').IsChecked=$null
-    Assert ($preview.Text -eq 'Производительный режим вентиляторов') 'Preview paragraph did not update'
+    Assert ($preview.Text -eq 'Производительный режим вентилятора') 'Preview paragraph did not update'
     $win.FindName('FanPerformance').IsChecked=$false
     Assert ($preview.Text -eq 'Действия не выбраны.') 'Preview did not clear'
     $win.FindName('EnergySaverSwitch').IsChecked=$false
@@ -90,6 +91,22 @@ try {
     Assert ($scroll.ScrollableHeight -gt 0) 'Expanded settings do not offer vertical scrolling'
     $scroll.ScrollToBottom();$grid.UpdateLayout()
     $results+=Render-Ui @{Name='expanded-bottom';Width=984;Height=661;Scale=1}
+    $original=$preview.Text
+    $preview.Text=(@('Длинная настройка выбранного экрана: 2880 × 1800, частота обновления 144 Гц')*50)-join "`r`n`r`n"
+    $results+=Render-Ui @{Name='long-preview';Width=804;Height=521;Scale=1}
+    [void]$preview.ApplyTemplate();$previewHost=$preview.Template.FindName('PART_ContentHost',$preview);[void]$previewHost.ApplyTemplate()
+    $presenter=$previewHost.Template.FindName('PART_ScrollContentPresenter',$previewHost);$bar=$previewHost.Template.FindName('PART_VerticalScrollBar',$previewHost)
+    Assert ($previewHost.ScrollableHeight -gt 0 -and $bar.Visibility -eq 'Visible') 'Long preview has no visible scrollbar'
+    Assert ($previewHost.ActualWidth-$presenter.ActualWidth -ge $bar.ActualWidth) 'Preview scrollbar overlaps its text'
+    $focusedKey=[Windows.UIElement].GetField('IsKeyboardFocusedPropertyKey',[Reflection.BindingFlags]'Static,NonPublic').GetValue($null)
+    $preview.SetValue($focusedKey,$true);$grid.UpdateLayout()
+    Assert ($null -eq $preview.Template.FindName('FocusRing',$preview) -and $null -eq $preview.FocusVisualStyle) 'Preview focus outline remains'
+    $preview.SelectAll();Assert ($preview.SelectedText -eq $preview.Text) 'Preview cannot select all settings'
+    Assert ([Windows.Input.ApplicationCommands]::Copy.CanExecute($null,$preview)) 'Preview copy command is unavailable'
+    $preview.Select(0,0);$preview.SetValue($focusedKey,$false);$preview.Text=$original
+    Assert ($win.FindName('ResetScriptButton').IsEnabled) 'Reset is disabled for a configured script'
+    $win.FindName('ResetScriptButton').RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+    Assert (-not $ui.Configuration.HasActions -and -not $win.FindName('ResetScriptButton').IsEnabled -and $preview.Text -eq 'Действия не выбраны.') 'Reset button does not clear the script'
     $results|ConvertTo-Json -Depth 4|Set-Content -LiteralPath (Join-Path $art 'ui-results.json') -Encoding UTF8
     $results
     'PASS: Russian UI, empty/collapsed start, exclusive power selection, independent saver/power, live preview, system fonts, themed states, all six sections and footer geometry. DPI images use offscreen rendering; live native DPI/theme validation is separate.'

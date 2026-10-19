@@ -40,19 +40,20 @@ try{
     Assert ([Math]::Abs($thumb.RenderTransform.X) -lt 0.01 -and $track.Background.Color -eq $dark -and $thumb.Fill.Color -eq $blue) 'Disabled colors are not the enabled colors swapped'
     $switch.IsChecked=$null;Frame 180
     Assert ([Math]::Abs($thumb.RenderTransform.X-23) -lt 0.01) 'Neutral thumb did not return to center'
-    $sun=$win.FindName('BrightnessToggleButton');[void]$sun.ApplyTemplate();$slash=$sun.Template.FindName('SunSlash',$sun)
-    $surface=$sun.Template.FindName('BrightnessButtonSurface',$sun)
-    Assert ($slash.Opacity -eq 1) 'Disabled brightness has no crossed-out sun'
-    $sun.IsChecked=$true
-    if([Windows.SystemParameters]::ClientAreaAnimation){Assert ($slash.HasAnimatedProperties) 'Sun slash has no animation clock';Frame 35}
+    $win.FindName('DisplaySection').IsExpanded=$true;Frame 220
+    $brightness=$win.FindName('BrightnessToggleButton');[void]$brightness.ApplyTemplate()
+    $brightnessTrack=$brightness.Template.FindName('SwitchTrack',$brightness);$brightnessThumb=$brightness.Template.FindName('SwitchThumb',$brightness);$brightnessLabel=$brightness.Template.FindName('SwitchState',$brightness)
+    Assert ($brightness -is [Windows.Controls.CheckBox] -and -not $brightness.IsThreeState -and $null -eq $brightness.Template.FindName('SunSlash',$brightness)) 'Brightness is not a binary switch replacing the sun icon'
+    Assert ([Math]::Abs($brightnessThumb.RenderTransform.X) -lt 0.01 -and $brightnessLabel.Text -eq 'Выкл.' -and $brightnessTrack.Background.Color -eq [Windows.Media.Color]::FromArgb(77,97,113,128) -and $brightnessThumb.Fill.Color -eq $blue) 'Disabled brightness does not use left neutral colors'
+    $brightness.IsChecked=$true
+    if([Windows.SystemParameters]::ClientAreaAnimation){Frame 35;Assert ($brightnessThumb.RenderTransform.X -gt 0 -and $brightnessThumb.RenderTransform.X -lt 46 -and $brightnessTrack.Background.HasAnimatedProperties) ('Brightness thumb or palette jumps instead of animating: X='+$brightnessThumb.RenderTransform.X+' Loaded='+$brightness.IsLoaded+' Clock='+$brightnessTrack.Background.HasAnimatedProperties)}
     Frame 180
-    Assert ($slash.Opacity -eq 0 -and $win.FindName('BrightnessSlider').IsEnabled) 'Enabled brightness retains slash or disables slider'
-    Assert ($surface.Background.ToString() -eq '#00FFFFFF') 'Brightness still uses selected background fill'
-    $sun.IsChecked=$false;Frame 180
-    Assert ($slash.Opacity -eq 1 -and -not $win.FindName('BrightnessSlider').IsEnabled) 'Disabling brightness did not restore slash'
+    Assert ([Math]::Abs($brightnessThumb.RenderTransform.X-46) -lt 0.01 -and $brightnessLabel.Text -eq 'Вкл.' -and $brightnessTrack.Background.Color -eq $blue -and $brightnessThumb.Fill.Color -eq $dark -and $win.FindName('BrightnessSlider').IsEnabled) 'Enabled brightness position, colors or slider incorrect'
+    $brightness.IsChecked=$false;Frame 180
+    Assert ([Math]::Abs($brightnessThumb.RenderTransform.X) -lt 0.01 -and $brightnessTrack.Background.Color -eq [Windows.Media.Color]::FromArgb(77,97,113,128) -and -not $win.FindName('BrightnessSlider').IsEnabled) 'Disabling brightness did not restore left neutral state'
     $win.FindName('EnergySaverSwitch').IsChecked=$true;$switch.IsChecked=$false;Frame 180
     $preview=$win.FindName('ScriptPreview').Text
     Assert ($preview -notmatch '(?m)^\d+\. ' -and $preview.Contains([Environment]::NewLine+[Environment]::NewLine)) 'Preview is numbered or has no spacing between actions'
     Assert ([double]::IsNaN([Windows.Controls.TextBlock]::GetLineHeight($win.FindName('ScriptPreview')))) 'Preview has forced line spacing'
-    'PASS: '+$script:assertions+' assertions; loaded WPF transitions, intermediate frames, rapid reversal, swapped colors, crossed sun, unnumbered spaced preview. No system settings applied.'
+    'PASS: '+$script:assertions+' assertions; loaded WPF transitions, intermediate frames, rapid reversal, swapped colors, binary brightness movement/palette, unnumbered spaced preview. No system settings applied.'
 }finally{$win.Close()}

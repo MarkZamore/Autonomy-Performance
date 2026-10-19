@@ -24,6 +24,10 @@ public static class HdrControl {
  [StructLayout(LayoutKind.Sequential)] struct ColorState {public Header Header;public uint Enabled;}
  [StructLayout(LayoutKind.Sequential)] struct DpiGet {public Header Header;public int Min,Current,Max;}
  [StructLayout(LayoutKind.Sequential)] struct DpiSet {public Header Header;public int Relative;}
+ [StructLayout(LayoutKind.Explicit,Size=80)] struct PreferredMode {
+  [FieldOffset(0)]public Header Header;[FieldOffset(20)]public uint Width;[FieldOffset(24)]public uint Height;
+ }
+ [DllImport("user32.dll",EntryPoint="DisplayConfigGetDeviceInfo")]static extern int GetPreferredMode(ref PreferredMode packet);
  [DllImport("user32.dll",EntryPoint="DisplayConfigGetDeviceInfo")]static extern int GetDpi(ref DpiGet packet);
  [DllImport("user32.dll",EntryPoint="DisplayConfigSetDeviceInfo")]static extern int SetDpi(ref DpiSet packet);
  [DllImport("user32.dll")]static extern int SetDisplayConfig(uint paths,Path[] pathArray,uint modes,IntPtr modeArray,uint flags);
@@ -44,6 +48,16 @@ public static class HdrControl {
  static bool DpiState(Topology t,out DpiGet dpi){Source s=t.Paths[t.Index].Source;dpi=new DpiGet{Header=new Header{Type=unchecked((uint)-3),Size=(uint)Marshal.SizeOf(typeof(DpiGet)),Adapter=s.Adapter,Id=s.Id}};return GetDpi(ref dpi)==0&&dpi.Min<=0&&dpi.Min>=-11&&dpi.Current>=dpi.Min&&dpi.Current<=dpi.Max&&dpi.Max-dpi.Min<DpiValues.Length;}
  public static List<int> InspectScales(string monitorId){List<int> result=new List<int>();try{using(Topology t=GetTopology(monitorId)){DpiGet dpi;if(t!=null&&DpiState(t,out dpi))for(int i=0;i<=dpi.Max-dpi.Min;i++)result.Add(DpiValues[i]);}}catch{}return result;}
  public static int InspectCurrentScale(string monitorId){try{using(Topology t=GetTopology(monitorId)){DpiGet dpi;if(t!=null&&DpiState(t,out dpi))return DpiValues[dpi.Current-dpi.Min];}}catch{}return 0;}
+ // Relative DPI 0 is the Windows recommendation; the minimum offset maps to 100%.
+ // Do not use the current scale as a substitute for the recommended scale.
+ public static int InspectRecommendedScale(string monitorId){try{using(Topology t=GetTopology(monitorId)){DpiGet dpi;if(t!=null&&DpiState(t,out dpi))return DpiValues[-dpi.Min];}}catch{}return 0;}
+ // The driver's preferred mode is the source of Windows' recommended resolution.
+ public static bool TryInspectPreferredResolution(string monitorId,out uint width,out uint height){
+  width=height=0;try{Target target;if(!FindTarget(monitorId,out target))return false;PreferredMode packet=new PreferredMode{Header=Packet(3,typeof(PreferredMode),target)};
+   if(GetPreferredMode(ref packet)!=0||packet.Width==0||packet.Height==0)return false;
+   width=packet.Width;height=packet.Height;if(target.Rotation==2||target.Rotation==4){uint swap=width;width=height;height=swap;}return true;
+  }catch{return false;}
+ }
  public static DisplayChangeResult ApplyScale(string monitorId,int percent){try{using(Topology t=GetTopology(monitorId)){DpiGet dpi;if(t==null||!DpiState(t,out dpi))return Skip("Масштаб выбранного дисплея недоступен.");int index=Array.IndexOf(DpiValues,percent);if(index<0||index>dpi.Max-dpi.Min)return Skip("Выбранный масштаб недоступен.");if(index==dpi.Current-dpi.Min)return new DisplayChangeResult("ok","Масштаб уже установлен.");DpiSet request=new DpiSet{Header=dpi.Header,Relative=index+dpi.Min};request.Header.Type=unchecked((uint)-4);request.Header.Size=(uint)Marshal.SizeOf(typeof(DpiSet));if(SetDpi(ref request)!=0)return Skip("Windows не применила масштаб.");return InspectCurrentScale(monitorId)==percent?new DisplayChangeResult("ok","Масштаб "+percent+"% установлен."):Skip("Изменение масштаба не подтверждено.");}}catch{return Skip("Масштаб выбранного дисплея недоступен.");}}
  static bool PrepareDynamic(Topology t,bool enabled){
   Path p=t.Paths[t.Index];if((p.Flags&8)==0)return false;
@@ -51,7 +65,10 @@ public static class HdrControl {
   if(Marshal.ReadInt32(address)!=2)return false;
   uint numerator=unchecked((uint)Marshal.ReadInt32(address,32)),denominator=unchecked((uint)Marshal.ReadInt32(address,36));
   if(numerator==0||denominator==0||denominator>UInt32.MaxValue/2)return false;
-  if(enabled){if(p.Target.Technology!=6&&p.Target.Technology!=11&&p.Target.Technology!=13)return false;if((double)numerator/denominator<119)return false;p.Flags|=16;p.Target.Refresh=new Rational{Numerator=numerator,Denominator=denominator*2};}
+  // Connector labels are not capabilities. In particular, dual-screen laptops can
+  // expose a DRR-capable panel as INTERNAL or even DisplayPort external. Ask the
+  // driver to validate the complete topology instead of maintaining a whitelist.
+  if(enabled){if((double)numerator/denominator<119)return false;p.Flags|=16;p.Target.Refresh=new Rational{Numerator=numerator,Denominator=denominator*2};}
   else{p.Flags&=~16u;p.Target.Refresh=new Rational{Numerator=numerator,Denominator=denominator};}
   t.Paths[t.Index]=p;
   // Validate the entire unchanged topology plus the selected path's DRR flag.
