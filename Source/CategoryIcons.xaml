@@ -1,50 +1,39 @@
-<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <!-- Monochrome category artwork: 20 DIP canvas and the same fine, rounded
-         contour used by the surrounding Segoe Fluent category glyphs. -->
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Generated from the attributed SVGs in Assets/Category; see NOTICE.txt.
+         Geometry is preserved; scale and pen weight match 20 DIP category glyphs. -->
     <SolidColorBrush x:Key="CategoryIcon.Stroke" Color="#FFFFFF"/>
-    <Pen x:Key="CategoryIcon.Pen" Brush="{StaticResource CategoryIcon.Stroke}"
-         Thickness="1.3" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
-
-    <!-- ScreenXpert: the two offset diagonal ribbon shapes of its application mark. -->
-    <DrawingImage x:Key="Icon.ScreenXpert">
-        <DrawingImage.Drawing>
-            <DrawingGroup>
-                <GeometryDrawing Brush="Transparent" Geometry="M 0,0 H 20 V 20 H 0 Z"/>
-                <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}"
-                    Geometry="M 5.2,11.35 C 4.25,10.4 4.25,8.95 5.2,8 L 11.3,1.9 L 16.3,1.9 L 8.55,9.65 C 7.62,10.58 6.15,12.3 5.2,11.35 Z"/>
-                <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}"
-                    Geometry="M 14.8,8.65 C 15.75,9.6 15.75,11.05 14.8,12 L 8.7,18.1 L 3.7,18.1 L 11.45,10.35 C 12.38,9.42 13.85,7.7 14.8,8.65 Z"/>
-            </DrawingGroup>
-        </DrawingImage.Drawing>
-    </DrawingImage>
-
-    <!-- Wallpaper Engine: two open, offset frames flow into opposing gear halves. -->
-    <DrawingImage x:Key="Icon.WallpaperEngine">
-        <DrawingImage.Drawing>
-            <DrawingGroup>
-                <GeometryDrawing Brush="Transparent" Geometry="M 0,0 H 20 V 20 H 0 Z"/>
-                <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}"
-                    Geometry="M 5.9,3.7 C 5.9,2.65 6.75,1.8 7.8,1.8 H 16.4 C 17.5,1.8 18.3,2.65 18.3,3.7 V 12.5 C 18.3,13.55 17.5,14.4 16.4,14.4 H 11.25 V 15.75 H 9.25 V 14.35 C 8.55,14.2 7.9,13.9 7.35,13.45 L 6.4,14.4 L 5.05,13.05 L 6,12.1 C 5.65,11.6 5.4,10.95 5.3,10.4 H 4.05 V 8.45 H 5.4 C 5.6,7.8 5.9,7.35 6.3,6.9"/>
-                <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}"
-                    Geometry="M 14.45,16.25 C 14.45,17.3 13.6,18.15 12.55,18.15 H 3.7 C 2.6,18.15 1.75,17.3 1.75,16.2 V 7.35 C 1.75,6.25 2.6,5.4 3.7,5.4 H 9.25 V 4.05 H 11.25 V 5.45 C 11.95,5.6 12.6,5.9 13.15,6.35 L 14.1,5.4 L 15.45,6.75 L 14.5,7.7 C 14.85,8.2 15.1,8.85 15.2,9.4 H 16.45 V 11.35 H 15.1 C 14.9,12 14.6,12.45 14.2,12.9"/>
-                <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}">
-                    <GeometryDrawing.Geometry><EllipseGeometry Center="10.25,9.9" RadiusX="1.85" RadiusY="1.85"/></GeometryDrawing.Geometry>
-                </GeometryDrawing>
-            </DrawingGroup>
-        </DrawingImage.Drawing>
-    </DrawingImage>
-
-    <!-- ARMOURY CRATE: the hexagonal crate and three faceted triangular blades. -->
-    <DrawingImage x:Key="Icon.ArmouryCrate">
-        <DrawingImage.Drawing>
-            <DrawingGroup>
-                <GeometryDrawing Brush="Transparent" Geometry="M 0,0 H 20 V 20 H 0 Z"/>
-                <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}"
-                    Geometry="M 10,1.15 L 18,5.55 V 14.45 L 10,18.85 L 2,14.45 V 5.55 Z"/>
-                <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}"
-                    Geometry="M 10,2.55 L 16.55,13.95 L 12.65,11.65 Z M 16.55,13.95 L 3.45,13.95 L 7.45,11.65 Z M 3.45,13.95 L 10,2.55 L 10,7.2 Z"/>
-            </DrawingGroup>
-        </DrawingImage.Drawing>
-    </DrawingImage>
+    <Pen x:Key="CategoryIcon.Pen" Brush="{StaticResource CategoryIcon.Stroke}" Thickness="1.3" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+    <Pen x:Key="CategoryIcon.ArcticonsPen" Brush="{StaticResource CategoryIcon.Stroke}" Thickness="3.12" StartLineCap="Round" EndLineCap="Round" LineJoin="Round"/>
+    <!-- ScreenXpert: manually traced from the official Microsoft Store PNG.
+         Two flat-ended ribbons with rounded opposing ends; no tile background. -->
+    <DrawingImage x:Key="Icon.ScreenXpert"><DrawingImage.Drawing><DrawingGroup>
+        <GeometryDrawing Brush="Transparent" Geometry="M0,0 H20 V20 H0 Z"/>
+        <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}" Geometry="M9.873,1 H17.606 Q17.986,1 17.733,1.38 L7.21,11.9 C6.05,13.06 4.16,13.06 3,11.9 C1.83,10.73 1.83,8.85 3,7.68 L9.49,1.25 Q9.62,1 9.873,1 Z"/>
+        <DrawingGroup><DrawingGroup.Transform><RotateTransform Angle="180" CenterX="10" CenterY="10"/></DrawingGroup.Transform>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}" Geometry="M9.873,1 H17.606 Q17.986,1 17.733,1.38 L7.21,11.9 C6.05,13.06 4.16,13.06 3,11.9 C1.83,10.73 1.83,8.85 3,7.68 L9.49,1.25 Q9.62,1 9.873,1 Z"/>
+        </DrawingGroup>
+    </DrawingGroup></DrawingImage.Drawing></DrawingImage>
+    <DrawingImage x:Key="Icon.WallpaperEngine"><DrawingImage.Drawing><DrawingGroup>
+        <GeometryDrawing Brush="Transparent" Geometry="M0,0 H20 V20 H0 Z"/>
+        <DrawingGroup Transform="0.4166666666666667,0,0,0.4166666666666667,0,0">
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M23.3955,13.428a11.1793,11.1793,0,0,1,9.4893,17.0858"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M23.3945,13.429H9.8645A4.3564,4.3564,0,0,0,5.5,17.7962v20.342a4.3542,4.3542,0,0,0,4.3645,4.3645h20.342a4.3565,4.3565,0,0,0,4.3672-4.3645"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M22.0055,13.429V10.1938h4.2621v3.61"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M29.8785,15.502,32.74,12.64l2.5949,2.6207-2.8616,2.8616"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M34.5725,25.969h3.2352V21.7069h-3.61"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M32.4985,18.097,35.36,15.2354l-2.6207-2.5949-2.8616,2.8616"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M24.6055,34.572a11.1793,11.1793,0,0,1-9.4893-17.0858"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M24.6055,34.571h13.53A4.3564,4.3564,0,0,0,42.5,30.2038V9.8618a4.3542,4.3542,0,0,0-4.3645-4.3645H17.7935a4.3565,4.3565,0,0,0-4.3672,4.3645"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M25.9945,34.571v3.2352H21.7324v-3.61"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M18.1225,32.498,15.2609,35.36,12.666,32.7389l2.8616-2.8616"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M13.4285,22.031H10.1933v4.2621h3.61"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M15.5015,29.903,12.64,32.7646,15.2606,35.36l2.8616-2.8616"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}"><GeometryDrawing.Geometry><EllipseGeometry Center="24.0005,24" RadiusX="4.1397" RadiusY="4.1397"/></GeometryDrawing.Geometry></GeometryDrawing>
+        </DrawingGroup></DrawingGroup></DrawingImage.Drawing></DrawingImage>
+    <DrawingImage x:Key="Icon.ArmouryCrate"><DrawingImage.Drawing><DrawingGroup>
+        <GeometryDrawing Brush="Transparent" Geometry="M0,0 H20 V20 H0 Z"/>
+        <DrawingGroup Transform="0.4166666666666667,0,0,0.4166666666666667,0,0">
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M24,7.4249,4.5,40.5751l9.75-3.9L24,19.1246l9.75,17.5505,9.75,3.9Z"/>
+            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="M24,26.9248l-5.85,9.75,5.85-1.95,5.85,1.95Z"/>
+        </DrawingGroup></DrawingGroup></DrawingImage.Drawing></DrawingImage>
 </ResourceDictionary>

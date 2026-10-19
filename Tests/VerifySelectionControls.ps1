@@ -67,12 +67,12 @@ try{
     Toggle $brightness
     Assert ($ui.Configuration.Brightness -eq 37) 'Re-enabling brightness lost its value'
     Toggle $brightness
-    foreach($section in @('AutonomySection','PerformanceSection','WallpaperSection','ArmourySection','PowerSection','DisplaySection','AdditionalSection')){$win.FindName($section).IsExpanded=$true}
+    foreach($section in @('PerformanceSection','WallpaperSection','ArmourySection','PowerSection','DisplaySection','AdditionalSection')){$win.FindName($section).IsExpanded=$true}
     $grid=$win.FindName('RootGrid');$grid.Measure([Windows.Size]::new(984,661));$grid.Arrange([Windows.Rect]::new(0,0,984,661));$grid.UpdateLayout()
     $iconButton=$win.FindName('IconButton')
     Assert ($iconButton.ToolTip -eq 'Выбрать иконку') 'Icon button tooltip was removed or renamed'
     $elements=@(Get-UiElements);$tooltipOwners=@($elements|Where-Object {$null -ne [Windows.Controls.ToolTipService]::GetToolTip($_)})
-    Assert ($tooltipOwners.Count -eq 1 -and [object]::ReferenceEquals($tooltipOwners[0],$iconButton)) 'Another UI element still has a tooltip'
+    foreach($owner in $tooltipOwners){Assert (([object]::ReferenceEquals($owner,$iconButton)) -or ($owner -is [Windows.Controls.Button] -and $owner.Tag -is [int] -and [int]$owner.Tag -lt 5)) 'Unexpected tooltip outside icon choices'}
     foreach($tile in $win.FindName('IconGrid').Children){Assert (-not [string]::IsNullOrEmpty([Windows.Automation.AutomationProperties]::GetName($tile))) 'Icon tile lost its accessible label'}
     $focusedKey=[Windows.UIElement].GetField('IsKeyboardFocusedPropertyKey',[Reflection.BindingFlags]'Static,NonPublic').GetValue($null)
     foreach($name in @('PresetAutonomyButton','PresetPerformanceButton','IconButton','SaveButton','DisplaySelector','RefreshSelector')){
@@ -86,6 +86,6 @@ try{
     Assert ($null -ne $mark -and $mark.Visibility -eq 'Visible' -and $mark.Background.ToString() -eq $app.Resources['Brush.CheckFill'].ToString()) 'Selected list item does not use the muted blue indicator'
     Assert-NoRing $item
     $art=Join-Path $PSScriptRoot 'Artifacts\SelectionControls';[void][IO.Directory]::CreateDirectory($art)
-    [pscustomobject]@{Passed=$true;Assertions=$script:assertions;RepeatedClickClears=$true;RefreshWithoutCheckbox=$true;BrightnessIconToggle=$true;OnlyIconTooltip=$true;NoFocusOutline=$true;ListUsesBlueIndicator=$true;NoSystemSettingsApplied=$true}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $art 'results.json') -Encoding UTF8
-    'PASS: '+$script:assertions+' assertions; repeat-click mode deselection, refresh without checkbox, brightness icon toggle, one tooltip, accessible icon choices and original list styling with muted blue indicator. No system settings applied.'
+    [pscustomobject]@{Passed=$true;Assertions=$script:assertions;RepeatedClickClears=$true;RefreshWithoutCheckbox=$true;BrightnessIconToggle=$true;OnlyIconChoiceTooltips=$true;NoFocusOutline=$true;ListUsesBlueIndicator=$true;NoSystemSettingsApplied=$true}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $art 'results.json') -Encoding UTF8
+    'PASS: '+$script:assertions+' assertions; repeat-click mode deselection, refresh without checkbox, brightness icon toggle, icon-only tooltips, accessible icon choices and original list styling with muted blue indicator. No system settings applied.'
 }finally{$win.Close()}

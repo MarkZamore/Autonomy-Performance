@@ -10,16 +10,6 @@ using System.Security.Principal;
 using System.Threading;
 using System.Web.Script.Serialization;
 
-public sealed class StepResult
-{
-    public string Name;
-    public string Status;
-    public string Detail;
-    public StepResult() { }
-    public StepResult(string name, string status, string detail)
-    { Name = name; Status = status; Detail = detail; }
-}
-
 public sealed class ModeSnapshot
 {
     public WindowsState Windows;

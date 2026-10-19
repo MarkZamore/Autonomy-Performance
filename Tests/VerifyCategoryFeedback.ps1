@@ -6,7 +6,7 @@ $app=New-Object Windows.Application;$ui=New-Object ConstructorWindow;$win=$ui.Wi
 function Assert($condition,$message){if(-not $condition){throw $message}}
 try{
     $grid=$win.FindName('RootGrid');$grid.Measure([Windows.Size]::new(984,661));$grid.Arrange([Windows.Rect]::new(0,0,984,661));$grid.UpdateLayout()
-    $section=$win.FindName('AutonomySection');$header=$section.Template.FindName('HeaderToggle',$section)
+    $section=$win.FindName('PowerSection');$header=$section.Template.FindName('HeaderToggle',$section)
     $surface=$header.Template.FindName('HeaderSurface',$header);$ring=$header.Template.FindName('FocusRing',$header)
     $hoverKey=[Windows.UIElement].GetField('IsMouseOverPropertyKey',[Reflection.BindingFlags]'Static,NonPublic').GetValue($null)
     $pressedKey=[Windows.Controls.Primitives.ButtonBase].GetField('IsPressedPropertyKey',[Reflection.BindingFlags]'Static,NonPublic').GetValue($null)

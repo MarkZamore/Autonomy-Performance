@@ -23,4 +23,16 @@ $win.FindName('RefreshSelector').SelectedIndex=0;$win.FindName('DisplaySection')
 $ui.ApplyPreset($true);$win.FindName('PerformanceSection').IsExpanded=$true
 $win.FindName('SettingsScroll').ScrollToTop();$grid.UpdateLayout()
 Render $grid 984 661 (Join-Path $PSScriptRoot 'Artifacts\ui-performance-preset.png')
+$win.FindName('PerformanceSection').IsExpanded=$false;$win.FindName('WallpaperSection').IsExpanded=$true
+$win.FindName('WallpaperPlaybackSwitch').IsChecked=$true;$win.FindName('WallpaperAudioSwitch').IsChecked=$false
+Render $grid 984 661 (Join-Path $PSScriptRoot 'Artifacts\ui-wallpaper.png')
+$states=New-Object Windows.Controls.StackPanel
+foreach($state in @($false,$null,$true)){
+    $check=New-Object Windows.Controls.CheckBox;$check.Style=$app.Resources['TriStateSwitch'];$check.Content='Состояние переключателя';$check.Foreground=$app.Resources['Brush.Text'];$check.IsChecked=$state
+    [ControlMotion]::AttachSwitch($check);[void]$states.Children.Add($check)
+}
+Render $states 500 168 (Join-Path $PSScriptRoot 'Artifacts\ui-switch-states.png')
+$sunStates=New-Object Windows.Controls.StackPanel;$sunStates.Orientation=[Windows.Controls.Orientation]::Horizontal
+foreach($enabled in @($false,$true)){$button=New-Object Windows.Controls.Primitives.ToggleButton;$button.Style=$app.Resources['BrightnessToggle'];$button.IsChecked=$enabled;$button.Margin=[Windows.Thickness]::new(8,4,8,4);[ControlMotion]::AttachBrightness($button);[void]$sunStates.Children.Add($button)}
+Render $sunStates 104 44 (Join-Path $PSScriptRoot 'Artifacts\ui-sun-states.png')
 }finally{$win.Close()}

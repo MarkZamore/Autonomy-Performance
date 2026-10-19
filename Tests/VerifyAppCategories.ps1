@@ -19,8 +19,13 @@ try{
     $toggle.IsChecked=$false;Assert ($ui.Configuration.WallpaperPlayback -eq 2 -and $ui.Configuration.HasActions -and $win.FindName('ScriptPreview').Text.Contains('паузу')) 'Wallpaper pause is not selected'
     $toggle.IsChecked=$true;Assert ($ui.Configuration.WallpaperPlayback -eq 1 -and $win.FindName('ScriptPreview').Text.Contains('Продолжить')) 'Wallpaper play is not selected'
     $toggle.IsChecked=$null;Assert (-not $ui.Configuration.HasActions) 'Neutral wallpaper switch remains an action'
+    $audio=$win.FindName('WallpaperAudioSwitch');Assert ($audio.IsThreeState -and $null -eq $audio.IsChecked) 'Wallpaper audio switch is not neutral'
+    $audio.IsChecked=$false;Assert ($ui.Configuration.WallpaperAudio -eq 2 -and $ui.Configuration.WallpaperPlayback -eq 0 -and $win.FindName('ScriptPreview').Text.Contains('Выключить звук')) 'Wallpaper audio mute is missing or changes playback'
+    $audio.IsChecked=$true;Assert ($ui.Configuration.WallpaperAudio -eq 1 -and $win.FindName('ScriptPreview').Text.Contains('Включить звук')) 'Wallpaper audio unmute is missing'
+    $audio.IsChecked=$null;Assert (-not $ui.Configuration.HasActions) 'Neutral wallpaper audio switch remains an action'
     $art=Join-Path $PSScriptRoot 'Artifacts\AppCategories';[void][IO.Directory]::CreateDirectory($art)
     foreach($mode in @(1,2)){$c=New-Object ModeConfiguration;$c.WallpaperPlayback=$mode;$path=Join-Path $art ('Wallpaper-'+$mode+'.exe');[ExecutableExporter]::Save($path,$c,[EmbeddedAssets]::Read('Icon0'));Assert ([PeConfiguration]::Read($path).WallpaperPlayback -eq $mode) 'Wallpaper export lost configuration'}
+    foreach($mode in @(1,2)){$c=New-Object ModeConfiguration;$c.WallpaperAudio=$mode;$path=Join-Path $art ('WallpaperAudio-'+$mode+'.exe');[ExecutableExporter]::Save($path,$c,[EmbeddedAssets]::Read('Icon0'));Assert ([PeConfiguration]::Read($path).WallpaperAudio -eq $mode) 'Wallpaper audio export lost configuration'}
     $c=New-Object ModeConfiguration;$c.FanProfile=3;$path=Join-Path $art 'FanStandard.exe';[ExecutableExporter]::Save($path,$c,[EmbeddedAssets]::Read('Icon0'));Assert ([PeConfiguration]::Read($path).FanProfile -eq 3) 'Standard fan export lost configuration'
     $invalid=New-Object ModeConfiguration;$invalid.WallpaperPlayback=3;$rejected=$false;try{$invalid.Validate()}catch{$rejected=$true};Assert $rejected 'Invalid wallpaper action accepted'
     foreach($preset in @($false,$true)){$toggle.IsChecked=$false;$ui.ApplyPreset($preset);Assert ($ui.Configuration.WallpaperPlayback -eq 0 -and $null -eq $toggle.IsChecked) 'Preset retained wallpaper action'}

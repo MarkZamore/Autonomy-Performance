@@ -49,7 +49,7 @@ public static class AdditionalControl
             {
                 Run(results, "SleepTimeout", c.SleepTimeout, delegate { return SetPowerValue("SleepTimeout", scheme, SleepSubgroup, SleepIdle, c.SleepTimeout == 1 ? 180u : 0u, ref activate); });
                 Run(results, "ScreenTimeout", c.ScreenTimeout, delegate { return SetPowerValue("ScreenTimeout", scheme, DisplaySubgroup, DisplayIdle, c.ScreenTimeout == 1 ? 180u : 0u, ref activate); });
-                Run(results, "AdaptiveBrightness", c.AdaptiveBrightness, delegate { return SetPowerValue("AdaptiveBrightness", scheme, DisplaySubgroup, AdaptiveBrightness, c.AdaptiveBrightness == 1 ? 1u : 0u, ref activate); });
+                Run(results, "AdaptiveBrightness", c.AdaptiveBrightness, delegate { return SensorCapabilities.HasAmbientLight()&&SensorCapabilities.HasBrightness()?SetPowerValue("AdaptiveBrightness", scheme, DisplaySubgroup, AdaptiveBrightness, c.AdaptiveBrightness == 1 ? 1u : 0u, ref activate):new StepResult("AdaptiveBrightness","skipped","Ambient-light sensor or brightness control unavailable."); });
                 if (activate)
                 {
                     try { Check(PowerSetActiveScheme(IntPtr.Zero, ref scheme)); }
@@ -59,6 +59,8 @@ public static class AdditionalControl
         }
         Run(results, "PresenceScreenOff", c.PresenceSleep, delegate { return Presence.Set(false, c.PresenceSleep == 1); });
         Run(results, "PresenceDimming", c.PresenceDim, delegate { return Presence.Set(true, c.PresenceDim == 1); });
+        Run(results, "PresenceWake", c.PresenceWake, delegate { return Presence.SetFeature(2, c.PresenceWake == 1); });
+        Run(results, "PresenceOnlooker", c.PresenceOnlooker, delegate { return Presence.SetFeature(3, c.PresenceOnlooker == 1); });
         // HDR and content-adaptive brightness are handled by HdrControl, which
         // resolves the selected display and uses its native display packets.
         Run(results, "ScreenSaver", c.ScreenSaver, delegate { return SetScreenSaver(c.ScreenSaver == 1); });
@@ -174,8 +176,12 @@ public static class AdditionalControl
         static bool Get(IntPtr instance, int slot) { byte result; Hr(Method<GetBoolean>(instance, slot)(instance, out result)); return result != 0; }
 
         public static StepResult Set(bool dimming, bool enabled)
+        {return SetFeature(dimming?1:0,enabled);}
+        public static StepResult SetFeature(int feature,bool enabled)
         {
-            string name = dimming ? "PresenceDimming" : "PresenceScreenOff";
+            bool dimming=feature==1,extended=dimming||feature==3;
+            string name = dimming ? "PresenceDimming" : feature==2?"PresenceWake":feature==3?"PresenceOnlooker":"PresenceScreenOff";
+            Guid settingsId=feature==3?new Guid("89757226-acc1-4f58-81df-47f1d69537f2"):Settings2Id;
             IntPtr factory = IntPtr.Zero, settings = IntPtr.Zero, settings2 = IntPtr.Zero, features = IntPtr.Zero, features2 = IntPtr.Zero, sensor = IntPtr.Zero, className = IntPtr.Zero;
             int initialized = RoInitialize(0);
             try
@@ -191,16 +197,16 @@ public static class AdditionalControl
                 Hr(Method<GetFeatures>(factory, 11)(factory, sensor, out features));
                 if (features == IntPtr.Zero) return new StepResult(name, "skipped", "Human-presence capabilities are unavailable.");
                 IntPtr target; int getSlot, setSlot;
-                if (dimming)
+                if (extended)
                 {
-                    features2 = Query(features, Features2Id);
+                    features2 = Query(features,feature==3?new Guid("ed4e03aa-5ca2-5c02-b783-262e91295619"):Features2Id);
                     if (!Get(features2, 6)) return new StepResult(name, "skipped", "Adaptive dimming is unsupported by the sensor.");
-                    settings2 = Query(settings, Settings2Id); target = settings2; getSlot = 6; setSlot = 7;
+                    settings2 = Query(settings, settingsId); target = settings2; getSlot = 6; setSlot = 7;
                 }
                 else
                 {
-                    if (!Get(features, 9)) return new StepResult(name, "skipped", "Lock-on-leave is unsupported by the sensor.");
-                    target = settings; getSlot = 12; setSlot = 13;
+                    if (!Get(features,feature==2?8:9)) return new StepResult(name, "skipped", "Presence feature is unsupported by the sensor.");
+                    target = settings; getSlot = feature==2?8:12; setSlot = feature==2?9:13;
                 }
                 if (Get(target, getSlot) == enabled) return new StepResult(name, "ok", "Requested presence setting is already selected.");
                 Hr(Method<SetBoolean>(target, setSlot)(target, enabled ? (byte)1 : (byte)0));
@@ -212,12 +218,12 @@ public static class AdditionalControl
                 {
                     Hr(Method<GetObject>(factory,7)(factory,out verified));
                     if(verified==IntPtr.Zero)throw new IOException("Presence settings could not be verified.");
-                    verifiedTarget=dimming?Query(verified,Settings2Id):verified;
+                    verifiedTarget=extended?Query(verified,settingsId):verified;
                     if(Get(verifiedTarget,getSlot)!=enabled)throw new IOException("Presence settings did not verify.");
                 }
                 finally
                 {
-                    if(dimming&&verifiedTarget!=IntPtr.Zero)Marshal.Release(verifiedTarget);
+                    if(extended&&verifiedTarget!=IntPtr.Zero)Marshal.Release(verifiedTarget);
                     if(verified!=IntPtr.Zero)Marshal.Release(verified);
                 }
                 return new StepResult(name, "ok", enabled ? "Enabled through Windows HumanPresenceSettings." : "Disabled through Windows HumanPresenceSettings.");

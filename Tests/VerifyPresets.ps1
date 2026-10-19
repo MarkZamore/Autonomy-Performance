@@ -6,7 +6,7 @@ $art=Join-Path $PSScriptRoot 'Artifacts\Presets'
 [void][Reflection.Assembly]::LoadFrom([IO.Path]::GetFullPath($Builder))
 Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
 $app=New-Object Windows.Application;$ui=New-Object ConstructorWindow;$win=$ui.Window
-$additional=@('DarkTheme','SleepTimeout','ScreenTimeout','Hdr','PresenceSleep','PresenceDim','ContentBrightness','AdaptiveBrightness','ScreenSaver','UsbPower')
+$additional=@('DarkTheme','Hdr','PresenceSleep','PresenceDim','AdaptiveBrightness','ScreenSaver','UsbPower','WallpaperPlayback','WallpaperAudio','BatteryCare','WallpaperApplication','NightLight','DynamicRefresh','PresenceWake','PresenceOnlooker','BatteryPercentage','ClockSeconds')
 $fields=@('EnergySaver','FanProfile','PowerMode','Brightness','RefreshRate','DisplayId')+$additional
 $results=@();$assertions=0
 function Assert($condition,$message){$script:assertions++;if(-not $condition){throw $message}}
@@ -25,9 +25,9 @@ function Assert-Preset([bool]$performance,[string]$label) {
     foreach($field in $additional){Assert ($c.$field -eq 0 -and $null -eq $win.FindName($field+'Switch').IsChecked) ('Additional action remains selected: '+$label+' '+$field)}
     Assert ($c.RefreshRate -eq 0 -and [string]::IsNullOrEmpty($c.DisplayId) -and $win.FindName('RefreshSelector').SelectedItem.Rate -eq 0) ('Display configuration not removed: '+$label)
     $expected=if($performance){@('Выключить энергосбережение','Производительный режим вентиляторов','Яркость 100%','Оптимальная производительность')}else{@('Включить энергосбережение','Тихий режим вентиляторов')}
-    $lines=@($win.FindName('ScriptPreview').Text -split '\r?\n')
+    $lines=@($win.FindName('ScriptPreview').Text -split '\r?\n\r?\n')
     Assert ($lines.Count -eq $expected.Count) ('Unexpected preview count: '+$label)
-    for($i=0;$i -lt $lines.Count;$i++){Assert ($lines[$i] -eq (($i+1).ToString()+'. '+$expected[$i])) ('Wrong preview line: '+$label+' '+$i)}
+    for($i=0;$i -lt $lines.Count;$i++){Assert ($lines[$i] -eq $expected[$i]) ('Wrong preview paragraph: '+$label+' '+$i)}
     Assert ($win.FindName('SaveButton').IsEnabled) ('Save disabled after preset: '+$label)
 }
 try {

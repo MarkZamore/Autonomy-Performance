@@ -76,6 +76,12 @@ public static class ExportTests {
    Assert(r.Version==2&&r.EnergySaver==e&&r.PowerMode==p&&r.FanProfile==f&&r.Brightness==(b==1?100:-1)&&r.DarkTheme==d,"Configuration roundtrip");cases++;
   }
   Assert(cases==287,"All non-empty independent action combinations");
+  for(int playback=0;playback<3;playback++)for(int audio=0;audio<3;audio++){
+   ModeConfiguration c=new ModeConfiguration{WallpaperPlayback=playback,WallpaperAudio=audio};
+   Assert(c.HasActions==(playback!=0||audio!=0),"Wallpaper audio and playback actions are independent");if(!c.HasActions)continue;
+   ExecutableExporter.Save(exe,c,defaultIcon);ModeConfiguration r=PeConfiguration.Read(exe);
+   Assert(r.WallpaperPlayback==playback&&r.WallpaperAudio==audio,"Wallpaper audio/playback configuration roundtrip");
+  }
   foreach(int brightness in new[]{-1,0,1,50,99,100}){
    ModeConfiguration c=new ModeConfiguration{EnergySaver=1,Brightness=brightness};ExecutableExporter.Save(exe,c,defaultIcon);
    Assert(PeConfiguration.Read(exe).Brightness==brightness,"Brightness percentage and unchanged sentinel roundtrip");
@@ -127,6 +133,7 @@ public static class ExportTests {
   Rejected(delegate{ExecutableExporter.Save(exe,new ModeConfiguration{Brightness=101},defaultIcon);},"Brightness above 100 percent rejected");
   Rejected(delegate{ExecutableExporter.Save(exe,new ModeConfiguration{Hdr=1},defaultIcon);},"HDR action without target display rejected");
   Rejected(delegate{ExecutableExporter.Save(exe,new ModeConfiguration{DarkTheme=3},defaultIcon);},"Invalid additional toggle rejected");
+  Rejected(delegate{ExecutableExporter.Save(exe,new ModeConfiguration{WallpaperAudio=3},defaultIcon);},"Invalid wallpaper audio toggle rejected");
   Rejected(delegate{ExecutableExporter.Save(exe,valid,new byte[]{1,2,3});},"Invalid export icon rejected");
   Rejected(delegate{ExecutableExporter.Save(builder,valid,defaultIcon);},"Constructor overwrite rejected");
   string locked=Path.Combine(output,"Locked.exe");File.WriteAllText(locked,"must remain");

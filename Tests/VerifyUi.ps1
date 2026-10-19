@@ -40,15 +40,15 @@ try {
     Assert ($win.Title -eq 'Autonomy&Performance') 'Window title does not match executable name'
     Assert ($win.Width -eq 1000 -and $win.Height -eq 700 -and $win.MinWidth -eq 820 -and $win.MinHeight -eq 560) 'Window geometry differs from approved layout'
     Assert ($preview.IsReadOnly -and $preview.Text -eq 'Действия не выбраны.') 'Preview initial state failed'
-    foreach($section in @('AutonomySection','PerformanceSection','WallpaperSection','ArmourySection','PowerSection','DisplaySection','AdditionalSection')){Assert (-not $win.FindName($section).IsExpanded) ('Section not collapsed: '+$section)}
+    foreach($section in @('PerformanceSection','WallpaperSection','ArmourySection','PowerSection','DisplaySection','AdditionalSection')){Assert (-not $win.FindName($section).IsExpanded) ('Section not collapsed: '+$section)}
     Assert (-not $ui.Configuration.HasActions -and -not $win.FindName('SaveButton').IsEnabled) 'Initial selection is not empty'
-    $win.FindName('AutonomySection').IsExpanded=$true
+    $win.FindName('PowerSection').IsExpanded=$true
     $win.FindName('EnergySaverSwitch').IsChecked=$true;$win.FindName('FanWhisper').IsChecked=$true
-    Assert ($preview.Text -eq "1. Включить энергосбережение`r`n2. Тихий режим вентиляторов") 'Autonomy preview is not localized or in the expected order'
+    Assert ($preview.Text -eq "Включить энергосбережение`r`n`r`nТихий режим вентиляторов") 'Autonomy preview is not localized or separated into unnumbered paragraphs'
     $win.FindName('FanPerformance').IsChecked=$true
-    Assert ($preview.Text -eq "1. Включить энергосбережение`r`n2. Производительный режим вентиляторов") 'Fan conflict not reflected in preview'
+    Assert ($preview.Text -eq "Включить энергосбережение`r`n`r`nПроизводительный режим вентиляторов") 'Fan conflict not reflected in preview'
     $win.FindName('EnergySaverSwitch').IsChecked=$null
-    Assert ($preview.Text -eq '1. Производительный режим вентиляторов') 'Preview numbering did not update'
+    Assert ($preview.Text -eq 'Производительный режим вентиляторов') 'Preview paragraph did not update'
     $win.FindName('FanPerformance').IsChecked=$false
     Assert ($preview.Text -eq 'Действия не выбраны.') 'Preview did not clear'
     $win.FindName('EnergySaverSwitch').IsChecked=$false
@@ -69,9 +69,9 @@ try {
     Assert ($ui.Configuration.PowerMode -eq 2) 'Collapsing a category clears selection'
     Clear-Actions
     $win.FindName('EnergySaverSwitch').IsChecked=$true;$win.FindName('FanWhisper').IsChecked=$true;$win.FindName('Balanced').IsChecked=$true
-    Assert ($preview.Text.Contains('3. Сбалансированный')) 'Power missing from preview'
+    Assert ($preview.Text.Contains('Сбалансированный')) 'Power missing from preview'
     $win.FindName('Efficiency').IsChecked=$true
-    Assert ($preview.Text.Contains('3. Максимальная эффективность энергосбережения') -and -not $preview.Text.Contains('Сбалансированный')) 'Power replacement not reflected'
+    Assert ($preview.Text.Contains('Максимальная эффективность энергосбережения') -and -not $preview.Text.Contains('Сбалансированный')) 'Power replacement not reflected'
     $font=[Windows.Media.FontFamily]$app.Resources['Font.Family']
     Assert ($font.Source -match 'Segoe UI Variable Text' -and $font.Source -notmatch 'Montserrat|pack:') 'System font family not used'
     Assert ($font.GetTypefaces().Count -gt 0) 'System font unavailable'
@@ -83,7 +83,7 @@ try {
     foreach($state in @('IsMouseOver','IsPressed','IsEnabled','IsKeyboardFocused')){Assert ($theme.Contains($state)) ('Missing interactive theme state: '+$state)}
     Assert ($theme -notmatch 'Montserrat|Obsidian|Обсидиан') 'Old design remains in theme'
     $grid=$win.FindName('RootGrid');$grid.Background=$app.Resources['Brush.WindowBackdrop']
-    foreach($section in @('AutonomySection','PerformanceSection','PowerSection','DisplaySection','AdditionalSection')){$win.FindName($section).IsExpanded=$true}
+    foreach($section in @('PerformanceSection','PowerSection','DisplaySection','AdditionalSection')){$win.FindName($section).IsExpanded=$true}
     $results=@()
     foreach($scenario in @(@{Name='normal';Width=984;Height=661;Scale=1},@{Name='minimum';Width=804;Height=521;Scale=1},@{Name='dpi150';Width=984;Height=661;Scale=1.5},@{Name='dpi200';Width=984;Height=661;Scale=2})){$results+=Render-Ui $scenario}
     $scroll=$win.FindName('SettingsScroll')
@@ -92,5 +92,5 @@ try {
     $results+=Render-Ui @{Name='expanded-bottom';Width=984;Height=661;Scale=1}
     $results|ConvertTo-Json -Depth 4|Set-Content -LiteralPath (Join-Path $art 'ui-results.json') -Encoding UTF8
     $results
-    'PASS: Russian UI, empty/collapsed start, exclusive power selection, independent saver/power, live preview, system fonts, themed states, all seven sections and footer geometry. DPI images use offscreen rendering; live native DPI/theme validation is separate.'
+    'PASS: Russian UI, empty/collapsed start, exclusive power selection, independent saver/power, live preview, system fonts, themed states, all six sections and footer geometry. DPI images use offscreen rendering; live native DPI/theme validation is separate.'
 } finally {$win.Close()}

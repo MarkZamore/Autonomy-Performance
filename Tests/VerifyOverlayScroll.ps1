@@ -17,13 +17,13 @@ function Layout($width,$height){$size=[Windows.Size]::new($width,$height);$grid.
 $results=@()
 try{
 foreach($size in @(@{Width=984;Height=661},@{Width=804;Height=521})){
-foreach($name in @('AutonomySection','PerformanceSection','WallpaperSection','ArmourySection','PowerSection','DisplaySection','AdditionalSection')){$win.FindName($name).IsExpanded=$false}
+foreach($name in @('PerformanceSection','WallpaperSection','ArmourySection','PowerSection','DisplaySection','AdditionalSection')){$win.FindName($name).IsExpanded=$false}
 Layout $size.Width $size.Height
-$columns=$scroll.Parent.ColumnDefinitions;Assert ([math]::Abs($columns[0].ActualWidth-2*$columns[2].ActualWidth) -lt 1) 'Settings and preview ratio is not 2:1';$before=$win.FindName('AutonomySection').ActualWidth;$pointBefore=$win.FindName('AutonomySection').TranslatePoint([Windows.Point]::new(0,0),$grid)
+$columns=$scroll.Parent.ColumnDefinitions;Assert ([math]::Abs($columns[0].ActualWidth-2*$columns[2].ActualWidth) -lt 1) 'Settings and preview ratio is not 2:1';$before=$win.FindName('PowerSection').ActualWidth;$pointBefore=$win.FindName('PowerSection').TranslatePoint([Windows.Point]::new(0,0),$grid)
 if($size.Height -ge 661){Assert ($scroll.ComputedVerticalScrollBarVisibility -eq [Windows.Visibility]::Collapsed) 'Scrollbar visible when collapsed categories fit'}else{Assert ($scroll.ComputedVerticalScrollBarVisibility -eq [Windows.Visibility]::Visible) 'Seven categories must remain scrollable at minimum height'}
-foreach($name in @('AutonomySection','PerformanceSection','PowerSection','DisplaySection')){$win.FindName($name).IsExpanded=$true}
+foreach($name in @('PerformanceSection','PowerSection','DisplaySection')){$win.FindName($name).IsExpanded=$true}
 Layout $size.Width $size.Height
-$after=$win.FindName('AutonomySection').ActualWidth;$pointAfter=$win.FindName('AutonomySection').TranslatePoint([Windows.Point]::new(0,0),$grid)
+$after=$win.FindName('PowerSection').ActualWidth;$pointAfter=$win.FindName('PowerSection').TranslatePoint([Windows.Point]::new(0,0),$grid)
 Assert ($scroll.ComputedVerticalScrollBarVisibility -eq [Windows.Visibility]::Visible) 'Scrollbar missing for expanded categories'
 Assert ([math]::Abs($before-$after) -lt 0.01 -and [math]::Abs($pointBefore.X-$pointAfter.X) -lt 0.01) 'Scrollbar shifted or resized settings'
 $bar=$scroll.Template.FindName('PART_VerticalScrollBar',$scroll)
@@ -42,7 +42,7 @@ $bar.SetValue($hoverKey,$false);$thumb.SetValue($dragKey,$true);$grid.UpdateLayo
 Assert ([math]::Abs($surface.ActualWidth-6) -lt 0.01) 'Dragging outside the scrollbar does not keep its indicator at 6 DIP'
 $thumb.SetValue($dragKey,$false);$grid.UpdateLayout()
 Assert ([math]::Abs($surface.ActualWidth-2) -lt 0.01) 'Scrollbar indicator did not return to 2 DIP'
-Assert ([math]::Abs($after-$win.FindName('AutonomySection').ActualWidth) -lt 0.01) 'Hovering scrollbar changed settings layout'
+Assert ([math]::Abs($after-$win.FindName('PowerSection').ActualWidth) -lt 0.01) 'Hovering scrollbar changed settings layout'
 $scroll.ScrollToBottom();$grid.UpdateLayout();Assert ($scroll.VerticalOffset -gt 0) 'Overlay scrollbar does not scroll'
 $scroll.ScrollToTop();$grid.UpdateLayout()
 $results+=[pscustomobject]@{ClientWidth=$size.Width;Before=$before;After=$after;XBefore=$pointBefore.X;XAfter=$pointAfter.X;CardRight=$cardRight;ScrollbarLeft=$barPoint.X;GapDIP=($barPoint.X-$cardRight);HitTargetDIP=$bar.ActualWidth;IdleDIP=2;HoverDIP=6;DragDIP=6;Scrolled=$true}

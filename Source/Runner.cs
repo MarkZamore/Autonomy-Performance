@@ -34,6 +34,11 @@ internal static class Runner
             }else if(!status){
                 report.Mode="configured";
                 ModeConfiguration c=PeConfiguration.Read(Assembly.GetExecutingAssembly().Location);
+                if(c.BatteryPercentage!=0)report.Steps.Add(TaskbarControl.SetPreference(true,c.BatteryPercentage==1));
+                if(c.ClockSeconds!=0)report.Steps.Add(TaskbarControl.SetPreference(false,c.ClockSeconds==1));
+                if(c.TaskbarRepair!=0)report.Steps.Add(TaskbarControl.Apply(c.TaskbarRepair));
+                if(c.WallpaperApplication==1)report.Steps.Add(WallpaperControl.SetApplication(true));
+                if(c.BatteryCare!=0)report.Steps.Add(BatteryCareControl.Set(c.BatteryCare==1));
                 Guid? savedAC=null,savedDC=null;
                 bool preservePower=true,fanMayHaveChanged=false;
                 bool additionalSchemeRefresh=c.SleepTimeout!=0||c.ScreenTimeout!=0||c.AdaptiveBrightness!=0;
@@ -60,12 +65,18 @@ internal static class Runner
                 // Clear a selected saver override before HDR; brightness follows
                 // display reconfiguration so a driver transition cannot reset it.
                 if(c.EnergySaver==2)report.Steps.AddRange(WindowsControl.SetEnergySaver(false));
-                if(c.RefreshRate!=0){DisplayChangeResult display=DisplayControl.Apply(c.DisplayId,c.RefreshRate);report.Steps.Add(new StepResult("DisplayRefreshRate",display.Status,display.Detail));}
+                if(c.RefreshRate!=0||c.DisplayWidth!=0){DisplayChangeResult display=DisplayControl.Apply(c.DisplayId,c.RefreshRate,c.DisplayWidth,c.DisplayHeight);report.Steps.Add(new StepResult("DisplayRefreshRate",display.Status,display.Detail));}
                 if(c.Hdr!=0){DisplayChangeResult hdr=HdrControl.Apply(c.DisplayId,c.Hdr==1);report.Steps.Add(new StepResult("DisplayHdr",hdr.Status,hdr.Detail));}
-                if(c.ContentBrightness!=0){DisplayChangeResult cabc=HdrControl.ApplyContentBrightness(c.DisplayId,c.ContentBrightness==1);report.Steps.Add(new StepResult("ContentBrightness",cabc.Status,cabc.Detail));}
+                if(c.ContentBrightness!=0){DisplayChangeResult cabc=HdrControl.ApplyContentBrightness(c.DisplayId,c.ContentBrightness);report.Steps.Add(new StepResult("ContentBrightness",cabc.Status,cabc.Detail));}
+                if(c.DisplayScale!=0){DisplayChangeResult scale=HdrControl.ApplyScale(c.DisplayId,c.DisplayScale);report.Steps.Add(new StepResult("DisplayScale",scale.Status,scale.Detail));}
+                if(c.DynamicRefresh!=0){DisplayChangeResult dynamicRate=HdrControl.ApplyDynamic(c.DisplayId,c.DynamicRefresh==1);report.Steps.Add(new StepResult("DynamicRefresh",dynamicRate.Status,dynamicRate.Detail));}
                 if(c.Brightness>=0)report.Steps.AddRange(WindowsControl.SetBrightness(c.Brightness));
+                if(c.NightLight!=0)report.Steps.Add(NightLightControl.Apply(c.NightLight==1,c.NightLightStrength));
                 if(c.EnergySaver==1)report.Steps.AddRange(WindowsControl.SetEnergySaver(true));
+                // Set a selected mute state before resuming playback.
+                if(c.WallpaperAudio!=0)report.Steps.Add(WallpaperControl.SetAudio(c.WallpaperAudio==1));
                 if(c.WallpaperPlayback!=0)report.Steps.Add(WallpaperControl.SetPlayback(c.WallpaperPlayback==1));
+                if(c.WallpaperApplication==2)report.Steps.Add(WallpaperControl.SetApplication(false));
             }else report.Mode="status";
             if(reportPath!=null)report.State=new ModeSnapshot{Windows=WindowsControl.ReadState(),Fan=FanControl.ReadState()};
             foreach(StepResult step in report.Steps)if(step.Status=="error")return 1;
