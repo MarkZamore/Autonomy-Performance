@@ -399,5 +399,12 @@ public sealed class ConstructorWindow
 }
 public static class ConstructorApp
 {
-    [STAThread] public static int Main(){try{Application app=new Application();app.ShutdownMode=ShutdownMode.OnMainWindowClose;ConstructorWindow ui=new ConstructorWindow();return app.Run(ui.Window);}catch{return 1;}}
+    [STAThread] public static int Main()
+    {
+        // Set before WPF initializes its rendering system. This affects this process only.
+        AppContext.SetSwitch("Switch.System.Windows.Media.MediaContext.DisableDirtyRectangles",true);
+        return Run();
+    }
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    static int Run(){try{Application app=new Application();app.ShutdownMode=ShutdownMode.OnMainWindowClose;ConstructorWindow ui=new ConstructorWindow();return app.Run(ui.Window);}catch{return 1;}}
 }
