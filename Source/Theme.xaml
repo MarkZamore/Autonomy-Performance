@@ -37,7 +37,7 @@
     <sys:Double x:Key="Font.Body">14</sys:Double><sys:Double x:Key="Font.Caption">12</sys:Double>
     <sys:Double x:Key="Font.Heading">20</sys:Double><sys:Double x:Key="Font.Display">20</sys:Double>
     <sys:Double x:Key="Line.Body">20</sys:Double><sys:Double x:Key="Line.Caption">16</sys:Double><sys:Double x:Key="Line.Heading">28</sys:Double>
-    <sys:Double x:Key="Size.WindowWidth">1000</sys:Double><sys:Double x:Key="Size.WindowHeight">700</sys:Double>
+    <sys:Double x:Key="Size.WindowWidth">820</sys:Double><sys:Double x:Key="Size.WindowHeight">560</sys:Double>
     <sys:Double x:Key="Size.WindowMinWidth">820</sys:Double><sys:Double x:Key="Size.WindowMinHeight">560</sys:Double>
     <sys:Double x:Key="Size.Control">36</sys:Double><sys:Double x:Key="Size.CheckRow">44</sys:Double><sys:Double x:Key="Size.CategoryHeader">64</sys:Double>
     <sys:Double x:Key="Size.Check">20</sys:Double><sys:Double x:Key="Size.Icon">32</sys:Double><sys:Double x:Key="Size.CategoryIcon">20</sys:Double>

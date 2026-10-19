@@ -40,7 +40,7 @@ $win=$ui.Window
 try {
     $preview=$win.FindName('ScriptPreview')
     Assert ($win.Title -eq 'Autonomy&Performance') 'Window title does not match executable name'
-    Assert ($win.Width -eq 1000 -and $win.Height -eq 700 -and $win.MinWidth -eq 820 -and $win.MinHeight -eq 560) 'Window geometry differs from approved layout'
+    Assert ($win.Width -eq 820 -and $win.Height -eq 560 -and $win.MinWidth -eq 820 -and $win.MinHeight -eq 560) 'Window must start at its minimum supported size'
     Assert ($preview -is [Windows.Controls.ScrollViewer] -and $ui.PreviewText -eq '') 'Preview initial state failed'
     foreach($section in @('PerformanceSection','WallpaperSection','ArmourySection','PowerSection','DisplaySection','AdditionalSection')){Assert (-not $win.FindName($section).IsExpanded) ('Section not collapsed: '+$section)}
     Assert (-not $ui.Configuration.HasActions -and -not $win.FindName('SaveButton').IsEnabled) 'Initial selection is not empty'
