@@ -82,10 +82,10 @@ try{
     $item=New-Object Windows.Controls.ComboBoxItem;$item.Content='Выбранный пункт';$item.Style=$app.Resources[[Windows.Controls.ComboBoxItem]];$item.IsSelected=$true
     [void]$item.ApplyTemplate();$item.Measure([Windows.Size]::new(300,40));$item.Arrange([Windows.Rect]::new(0,0,300,40));$item.UpdateLayout()
     $surface=$item.Template.FindName('ItemSurface',$item);$mark=$item.Template.FindName('SelectionMark',$item)
-    Assert ($surface.Background.ToString() -eq $app.Resources['Brush.CheckFill'].ToString() -and $item.Foreground.ToString() -eq $app.Resources['Brush.CheckMark'].ToString()) 'Selected list item does not match checkbox colors'
-    Assert ($null -eq $mark -or $mark.Visibility -ne 'Visible') 'Selected list item still shows an accent stripe'
+    Assert ($surface.Background.ToString() -eq $app.Resources['Brush.SubtleHover'].ToString() -and $item.Foreground.ToString() -eq $app.Resources['Brush.Text'].ToString()) 'Selected list item does not preserve its original neutral fill and light text'
+    Assert ($null -ne $mark -and $mark.Visibility -eq 'Visible' -and $mark.Background.ToString() -eq $app.Resources['Brush.CheckFill'].ToString()) 'Selected list item does not use the muted blue indicator'
     Assert-NoRing $item
     $art=Join-Path $PSScriptRoot 'Artifacts\SelectionControls';[void][IO.Directory]::CreateDirectory($art)
-    [pscustomobject]@{Passed=$true;Assertions=$script:assertions;RepeatedClickClears=$true;RefreshWithoutCheckbox=$true;BrightnessIconToggle=$true;OnlyIconTooltip=$true;NoFocusOutline=$true;ListUsesCheckboxColors=$true;NoSystemSettingsApplied=$true}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $art 'results.json') -Encoding UTF8
-    'PASS: '+$script:assertions+' assertions; repeat-click mode deselection, refresh without checkbox, brightness icon toggle, one tooltip, accessible icon choices and matching list selection colors. No system settings applied.'
+    [pscustomobject]@{Passed=$true;Assertions=$script:assertions;RepeatedClickClears=$true;RefreshWithoutCheckbox=$true;BrightnessIconToggle=$true;OnlyIconTooltip=$true;NoFocusOutline=$true;ListUsesBlueIndicator=$true;NoSystemSettingsApplied=$true}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $art 'results.json') -Encoding UTF8
+    'PASS: '+$script:assertions+' assertions; repeat-click mode deselection, refresh without checkbox, brightness icon toggle, one tooltip, accessible icon choices and original list styling with muted blue indicator. No system settings applied.'
 }finally{$win.Close()}

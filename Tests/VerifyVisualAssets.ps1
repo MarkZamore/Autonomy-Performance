@@ -1,5 +1,6 @@
 ﻿$ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
+[void][IO.Directory]::CreateDirectory((Join-Path $PSScriptRoot 'Artifacts\Display'))
 [void][Reflection.Assembly]::LoadFrom((Join-Path $root 'Source\Build\AutonomyPerformance.exe'))
 Add-Type -AssemblyName PresentationFramework,PresentationCore,WindowsBase
 $app=New-Object Windows.Application;$ui=New-Object ConstructorWindow;$win=$ui.Window
@@ -10,6 +11,9 @@ $bitmap=[Windows.Media.Imaging.RenderTargetBitmap]::new($width,$height,96,96,[Wi
 }
 try{
 $icons=$win.FindName('IconGrid');$icons.Background=$app.Resources['Brush.Popup'];Render $icons 216 144 (Join-Path $PSScriptRoot 'Artifacts\ui-icons.png')
+$list=New-Object Windows.Controls.StackPanel
+foreach($text in @('Не менять','60 Гц','144 Гц')){$item=New-Object Windows.Controls.ComboBoxItem;$item.Content=$text;$item.Style=$app.Resources[[Windows.Controls.ComboBoxItem]];$item.IsSelected=$text -eq '60 Гц';[void]$list.Children.Add($item)}
+$listSurface=New-Object Windows.Controls.Border;$listSurface.Background=$app.Resources['Brush.Popup'];$listSurface.Padding=[Windows.Thickness]::new(8);$listSurface.Child=$list;Render $listSurface 300 140 (Join-Path $PSScriptRoot 'Artifacts\ui-list.png')
 $win.FindName('DisplaySection').IsExpanded=$true
 foreach($rate in $win.FindName('RefreshSelector').Items){if($rate.Rate -eq 60){$win.FindName('RefreshSelector').SelectedItem=$rate;break}}
 $win.FindName('BrightnessToggleButton').IsChecked=$true;$win.FindName('BrightnessSlider').Value=63
