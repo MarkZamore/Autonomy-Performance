@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
@@ -98,6 +99,30 @@ static class StartMenuShortcutsTests
         Assert(StartMenuShortcuts.RefreshIconsInFolder(first, folder,-1,-1234) == 2 && IconIndex(link) == -1234 && IconIndex(windows) == -1234, "Repeated refresh does not set the new content-specific icon reference");
         Assert(Directory.GetFiles(folder).Length == 7, "Refresh creates new shortcut or icon files");
     }
+    static void VerifyCleanupSelection(string root,string first,string second)
+    {
+        string folder=Path.Combine(root,"CleanupSelection");
+        string dead=StartMenuShortcuts.CreateInFolder(first,folder),healthy=StartMenuShortcuts.CreateInFolder(second,folder);
+        string foreign=Path.Combine(folder,"Foreign.lnk");File.Copy(dead,foreign);Edit(foreign,"SetDescription","User shortcut");
+        string arguments=Path.Combine(folder,"Arguments.lnk");File.Copy(dead,arguments);Edit(arguments,"SetArguments","--keep");
+        string offline=Path.Combine(folder,"Offline.lnk");File.Copy(dead,offline);Edit(offline,"SetPath",@"\\offline.invalid\share\Missing.exe");
+        string retry=Path.Combine(folder,"Retry.lnk");File.Copy(dead,retry);
+        string retargeted=Path.Combine(folder,"Retargeted.lnk");File.Copy(dead,retargeted);Edit(retargeted,"SetPath",Path.Combine(root,"DifferentMissing.exe"));
+        string userIcon=Path.Combine(folder,"UserIcon.lnk");File.Copy(dead,userIcon);EditValues(userIcon,"SetIconLocation",new object[]{Path.Combine(root,"User.ico"),0});
+        string[] protectedPaths={healthy,foreign,arguments,offline,retargeted,userIcon};
+        string[] snapshots=Array.ConvertAll(protectedPaths,delegate(string p){return Convert.ToBase64String(File.ReadAllBytes(p));});
+        File.Delete(first);List<string> requested=new List<string>();
+        int removed=StartMenuShortcuts.CleanupInFolder(folder,false,delegate(string p){Assert(File.Exists(p),"Shortcut deleted before Windows could unpin it");requested.Add(p);return p!=retry;});
+        Assert(removed==1&&!File.Exists(dead)&&File.Exists(retry),"Failed unpin is not retained for retry");
+        Assert(requested.Count==2&&requested.Contains(dead)&&requested.Contains(retry),"Cleanup asks Windows to unpin an unrelated or live shortcut");
+        for(int i=0;i<protectedPaths.Length;i++)Assert(Convert.ToBase64String(File.ReadAllBytes(protectedPaths[i]))==snapshots[i],"Cleanup modifies a protected shortcut");
+        Assert(StartMenuShortcuts.CleanupInFolder(folder,false,delegate(string p){return true;})==1&&!File.Exists(retry),"Retry does not finish cleanup");
+        int calls=0;Assert(StartMenuShortcuts.CleanupInFolder(folder,false,delegate(string p){calls++;return true;})==0&&calls==0,"Repeated startup touches protected links");
+        File.WriteAllBytes(first,new byte[]{77,90});string shared=Path.Combine(root,"SharedTaskbar"),last=StartMenuShortcuts.CreateInFolder(first,shared);File.Delete(first);
+        Assert(StartMenuShortcuts.CleanupInFolder(shared,false,delegate(string p){return true;})==1&&Directory.Exists(shared)&&!File.Exists(last),"Cleanup removes the shared Taskbar directory");
+        File.WriteAllBytes(first,new byte[]{77,90});string restored=StartMenuShortcuts.CreateInFolder(first,shared);File.Delete(first);
+        Assert(StartMenuShortcuts.CleanupInFolder(shared,false,delegate(string p){File.WriteAllBytes(first,new byte[]{77,90});return true;})==0&&File.Exists(restored),"Cleanup deletes a restored target's shortcut");
+    }
     [STAThread] static int Main(string[] args)
     {
         try {
@@ -107,6 +132,7 @@ static class StartMenuShortcutsTests
             string first = Path.Combine(root, "First", "Режим.exe"), second = Path.Combine(root, "Second", "Режим.exe");
             File.WriteAllBytes(first, new byte[] { 77, 90 }); File.WriteAllBytes(second, new byte[] { 77, 90 });
             VerifyPinRefresh(root, first, second);
+            VerifyCleanupSelection(root,first,second);
             string link = StartMenuShortcuts.CreateInFolder(first, folder);
             Assert(File.Exists(link) && Path.GetFileName(link) == "Режим.lnk", "A named Start menu link was not created");
             byte[] bytes = File.ReadAllBytes(link);

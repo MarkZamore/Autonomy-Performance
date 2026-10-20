@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 
-// Cleanup manages only marked links in our Programs subfolder. Icon refresh is
+// Cleanup manages only marked links in our Programs folder and Taskbar copies. Icon refresh is
 // limited to existing links to the exact exported EXE, keeping their other properties.
 // No registration, scheduled task, background process or target execution is used.
 public static class StartMenuShortcuts
@@ -85,6 +85,10 @@ public static class StartMenuShortcuts
     public static void Cleanup()
     {
         try { CleanupInFolder(Folder()); } catch { }
+        try {
+            string roaming=Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            if(!String.IsNullOrEmpty(roaming))CleanupInFolder(Path.Combine(roaming,@"Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"),false,ShellUnpin.TryUnpin);
+        }catch{ }
     }
 
     internal static void RefreshIcons(string executable,int previousIndex,int newIndex)
@@ -133,20 +137,39 @@ public static class StartMenuShortcuts
     }
 
     internal static int CleanupInFolder(string folder)
+    { return CleanupInFolder(folder,true,ShellUnpin.TryUnpin); }
+
+    internal static int CleanupInFolder(string folder,bool removeEmptyFolder,Func<string,bool> unpin)
     {
         int removed = 0;
         if (!Directory.Exists(folder) || IsReparsePoint(folder)) return removed;
         foreach (string path in Directory.GetFiles(folder, "*.lnk", SearchOption.TopDirectoryOnly)) {
             try {
                 string target;
-                if (ReadOwnedTarget(path, out target) && DefinitelyMissing(target)) { File.Delete(path); removed++; }
+                if (ReadCleanupTarget(path, out target) && DefinitelyMissing(target)) {
+                    // Unpin BEFORE deleting the shortcut, as required by Windows. Keep it
+                    // for a later retry if the Shell cannot perform its part of cleanup.
+                    if(!unpin(path))continue;
+                    // Recheck after the Shell call: a disconnected/restored target must
+                    // never be removed merely because an earlier observation was stale.
+                    string current;
+                    if(!ReadCleanupTarget(path,out current)||!String.Equals(current,target,StringComparison.OrdinalIgnoreCase)||!DefinitelyMissing(target))continue;
+                    File.Delete(path);removed++;
+                    SHChangeNotify(4,0x1005,path,IntPtr.Zero);
+                }
             } catch { }
         }
-        if (removed > 0) { try { Directory.Delete(folder, false); } catch { } }
+        if(removed>0){SHChangeNotify(0x1000,0x1005,folder,IntPtr.Zero);if(removeEmptyFolder){try{Directory.Delete(folder,false);SHChangeNotify(0x10,0x1005,folder,IntPtr.Zero);}catch{ }}}
         return removed;
     }
 
     static bool ReadOwnedTarget(string path, out string target)
+    { return ReadLinkTarget(path,false,out target); }
+
+    static bool ReadCleanupTarget(string path,out string target)
+    { return ReadLinkTarget(path,true,out target); }
+
+    static bool ReadLinkTarget(string path,bool checkIcon,out string target)
     {
         target = null;
         object instance = null;
@@ -154,7 +177,10 @@ public static class StartMenuShortcuts
             if (IsReparsePoint(path)) return false;
             instance = Activator.CreateInstance(Type.GetTypeFromCLSID(ShellLinkClass));
             ((IPersistFile)instance).Load(path, 0);
-            return ReadTarget((IShellLink)instance, true, out target);
+            IShellLink link=(IShellLink)instance;
+            if(!ReadTarget(link,true,out target))return false;
+            if(checkIcon){StringBuilder icon=new StringBuilder(32768);int index;link.GetIconLocation(icon,icon.Capacity,out index);if(!String.Equals(icon.ToString(),target,StringComparison.OrdinalIgnoreCase)||index>0||index < -65535)return false;}
+            return true;
         } catch { return false; }
         finally { if (instance != null) Marshal.FinalReleaseComObject(instance); }
     }
@@ -194,5 +220,29 @@ public static class StartMenuShortcuts
         try { File.GetAttributes(path); return false; }
         catch (FileNotFoundException) { return true; }
         catch (DirectoryNotFoundException) { return true; }
+    }
+}
+
+// Windows' supported shortcut-uninstallation API, without invoking shortcut verbs.
+internal static class ShellUnpin
+{
+    [ComImport,Guid("43826D1E-E718-42EE-BC55-A1E261C37BFE"),InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IShellItem { }
+    [ComImport,Guid("4CD19ADA-25A5-4A32-B3B7-347BEE5BE36B"),InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IStartMenuPinnedList { void RemoveFromList(IShellItem item); }
+    [DllImport("shell32.dll",CharSet=CharSet.Unicode,PreserveSig=false)]
+    static extern void SHCreateItemFromParsingName(string path,IntPtr context,ref Guid iid,[MarshalAs(UnmanagedType.Interface)]out IShellItem item);
+    [DllImport("ole32.dll")] static extern int CoInitializeEx(IntPtr reserved,uint flags);
+    [DllImport("ole32.dll")] static extern void CoUninitialize();
+    internal static bool TryUnpin(string path)
+    {
+        IShellItem item=null;object instance=null;int initialized=CoInitializeEx(IntPtr.Zero,2);
+        try {
+            Guid id=typeof(IShellItem).GUID;
+            SHCreateItemFromParsingName(path,IntPtr.Zero,ref id,out item);
+            instance=Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("A2A9545D-A0C2-42B4-9708-A0B2BADD77C8")));
+            ((IStartMenuPinnedList)instance).RemoveFromList(item);return true;
+        }catch{return false;}
+        finally{if(instance!=null)Marshal.FinalReleaseComObject(instance);if(item!=null)Marshal.FinalReleaseComObject(item);if(initialized>=0)CoUninitialize();}
     }
 }
