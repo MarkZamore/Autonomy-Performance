@@ -59,7 +59,6 @@ public static class ControlMotion
         TranslateTransform move=thumb.RenderTransform as TranslateTransform;
         if(move==null||move.IsFrozen){move=move==null?new TranslateTransform(23,0):move.Clone();thumb.RenderTransform=move;}
         bool animate=Animate(control,requested);bool? value=control.IsChecked;
-        bool taskbar=control.Name=="TaskbarRepairSwitch";
         bool binary=control.Name=="BrightnessToggleButton";
         TextBlock label=control.Template.FindName("SwitchState",control) as TextBlock;
         if(label!=null){
@@ -68,12 +67,12 @@ public static class ControlMotion
             if(control.Name=="WallpaperPlaybackSwitch"){on="Возобновить";off="Пауза";}
             if(control.Name=="WallpaperAudioSwitch"){on="Вкл. звук";off="Выкл. звук";}
             if(control.Name=="WallpaperApplicationSwitch"){on="Запустить";off="Завершить";}
-            label.Text=taskbar?(value==false?"Не менять":value==true?"Режим 2":"Режим 1"):value==true?on:value==false?off:"Не менять";
+            label.Text=value==true?on:value==false?off:"Не менять";
         }
         Color blue=((SolidColorBrush)control.FindResource("Brush.CheckFill")).Color;
         Color dark=((SolidColorBrush)control.FindResource("Brush.ControlDark")).Color;
-        Color background=binary?(value==true?blue:Color.FromArgb(77,97,113,128)):taskbar?(value==false?Color.FromArgb(77,97,113,128):blue):value==true?blue:value==false?dark:Color.FromArgb(77,97,113,128);
-        Color foreground=binary?(value==true?dark:blue):taskbar?(value==false?blue:dark):value==true?dark:blue;
+        Color background=binary?(value==true?blue:Color.FromArgb(77,97,113,128)):value==true?blue:value==false?dark:Color.FromArgb(77,97,113,128);
+        Color foreground=binary?(value==true?dark:blue):value==true?dark:blue;
         Move(move,TranslateTransform.XProperty,value==true?46:value==false?0:23,animate);
         Paint(track,Border.BackgroundProperty,background,animate);
         Paint(thumb,Shape.FillProperty,foreground,animate);

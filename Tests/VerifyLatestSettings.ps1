@@ -28,7 +28,7 @@ try{
  Assert ($win.FindName('BatteryWear').Text.StartsWith('Износ батареи: ')) 'Battery footer missing'
  $names=[ConstructorWindow].GetField('switchNames',[Reflection.BindingFlags]'Static,NonPublic').GetValue($null)
  foreach($name in $names){
-  $control=$win.FindName($name);$field=$name.Replace('Switch','');if($field -eq 'TaskbarRepair'){continue}
+  $control=$win.FindName($name);$field=$name.Replace('Switch','')
   foreach($pair in @(@($true,1),@($false,2),@($null,0))){
    $control.IsChecked=$pair[0];$expected=if($control.IsEnabled){$pair[1]}else{0}
    $configuration=if($field -in @('Hdr','DynamicRefresh')){Current-DisplayAction}else{$ui.Configuration}
@@ -36,9 +36,6 @@ try{
    if($expected -ne 0){$path=Join-Path $art ($field+'-'+$expected+'.exe');[ExecutableExporter]::Save($path,$ui.Configuration,[EmbeddedAssets]::Read("Icon0"));$export=[PeConfiguration]::Read($path);$exportAction=if($field -in @('Hdr','DynamicRefresh')){@($export.Displays|Where-Object {$_.DisplayId -eq $configuration.DisplayId})[0]}else{$export};Assert ($exportAction.$field -eq $expected) ('Export lost '+$field)}
   }
  }
- $task=$win.FindName('TaskbarRepairSwitch')
- foreach($pair in @(@($false,0),@($null,1),@($true,2))){$task.IsChecked=$pair[0];Assert ($ui.Configuration.TaskbarRepair -eq $pair[1]) 'Taskbar positions mismatch';$task.ApplyTemplate()|Out-Null;$text=$task.Template.FindName('SwitchState',$task).Text;Assert ($text -eq @('Не менять','Режим 1','Режим 2')[$pair[1]]) 'Taskbar labels mismatch'}
- $task.IsChecked=$false
  $night=$win.FindName('NightLightSwitch');$slider=$win.FindName('NightLightSlider')
  foreach($value in @($false,$null,$true)){$night.IsChecked=$value;Assert ($slider.IsEnabled -eq ($value -eq $true)) 'Night slider enablement mismatch'}
  $slider.Value=73;Assert ($ui.Configuration.NightLightStrength -eq 73 -and $ui.PreviewText.Contains('73%')) 'Night strength missing in preview'
@@ -76,16 +73,16 @@ try{
   Assert ($c.Brightness -eq -1) 'Preset unexpectedly changes global brightness'
   foreach($action in $c.Displays){Assert ($action.Brightness -eq -1 -and $action.ContentBrightness -eq 0) 'Preset unexpectedly changes per-display brightness or content adaptation';Assert (@($display.Items|Where-Object MonitorId -eq $action.DisplayId).Count -eq 1) 'Preset includes an absent display'}
   Assert ($c.EnergySaver -eq $(if($capabilities.EnergySaver){if($preset){2}else{1}}else{0}) -and $c.PowerMode -eq $(if($capabilities.PowerMode){if($preset){3}else{1}}else{0})) 'Preset power actions ignore availability or mode'
-  Assert ($c.DarkTheme -eq $(if($capabilities.DarkTheme){1}else{0}) -and $c.TaskbarRepair -eq $(if($capabilities.TaskbarRepair){2}else{0})) 'Preset theme/taskbar actions ignore availability'
+  Assert ($c.DarkTheme -eq $(if($capabilities.DarkTheme){1}else{0})) 'Preset theme/taskbar actions ignore availability'
   Assert ($c.FanProfile -eq $(if($capabilities.FanProfile){if($preset){2}else{1}}else{0})) 'Preset fan action ignores availability or mode'
   Assert ($c.WallpaperPlayback -eq $(if($capabilities.WallpaperPlayback){if($preset){1}else{2}}else{0}) -and $c.WallpaperAudio -eq $(if($capabilities.WallpaperAudio){if($preset){1}else{2}}else{0})) 'Preset wallpaper playback/audio are incorrect'
   Assert ($c.WallpaperApplication -eq $(if($preset -and $capabilities.WallpaperApplication){1}else{0})) 'Preset wallpaper launch is incorrect'
  }
  foreach($tile in $win.FindName('IconGrid').Children){if([int]$tile.Tag -lt 5){Assert (-not [string]::IsNullOrEmpty($tile.ToolTip)) 'Preset icon tooltip missing'}}
  foreach($name in @('WallpaperPlaybackSwitch','WallpaperAudioSwitch')){foreach($v in @($true,$false)){$t=$win.FindName($name);$t.IsChecked=$v;$t.ApplyTemplate()|Out-Null;Assert ($t.Template.FindName('SwitchState',$t).Text -notin @('Вкл.','Выкл.')) 'Generic Wallpaper caption remains'}}
- $mixed=New-Object ModeConfiguration;$mixed.DisplayId='TEST\DISPLAY';$mixed.DisplayWidth=1920;$mixed.DisplayHeight=1080;$mixed.RefreshRate=60;$mixed.DisplayScale=150;$mixed.DynamicRefresh=1;$mixed.NightLight=1;$mixed.NightLightStrength=73;$mixed.ContentBrightness=3;$mixed.PresenceWake=1;$mixed.PresenceOnlooker=2;$mixed.TaskbarRepair=2;$mixed.WallpaperApplication=1;$mixed.BatteryPercentage=1;$mixed.ClockSeconds=2
+ $mixed=New-Object ModeConfiguration;$mixed.DisplayId='TEST\DISPLAY';$mixed.DisplayWidth=1920;$mixed.DisplayHeight=1080;$mixed.RefreshRate=60;$mixed.DisplayScale=150;$mixed.DynamicRefresh=1;$mixed.NightLight=1;$mixed.NightLightStrength=73;$mixed.ContentBrightness=3;$mixed.PresenceWake=1;$mixed.PresenceOnlooker=2;$mixed.WallpaperApplication=1;$mixed.BatteryPercentage=1;$mixed.ClockSeconds=2
  $path=Join-Path $art 'MixedDisplay.exe';[ExecutableExporter]::Save($path,$mixed,[EmbeddedAssets]::Read('Icon0'));$read=[PeConfiguration]::Read($path)
- foreach($field in @('DisplayId','DisplayWidth','DisplayHeight','RefreshRate','DisplayScale','DynamicRefresh','NightLight','NightLightStrength','ContentBrightness','PresenceWake','PresenceOnlooker','TaskbarRepair','WallpaperApplication','BatteryPercentage','ClockSeconds')){Assert ($mixed.$field -eq $read.$field) ('Mixed export loses '+$field)}
+ foreach($field in @('DisplayId','DisplayWidth','DisplayHeight','RefreshRate','DisplayScale','DynamicRefresh','NightLight','NightLightStrength','ContentBrightness','PresenceWake','PresenceOnlooker','WallpaperApplication','BatteryPercentage','ClockSeconds')){Assert ($mixed.$field -eq $read.$field) ('Mixed export loses '+$field)}
  foreach($f in Get-ChildItem (Join-Path $root 'Source') -File|Where-Object Extension -in '.cs','.xaml'){Assert ([IO.File]::ReadAllText($f.FullName) -notmatch '[\u2013\u2014]') ('Long dash remains: '+$f.Name)}
  'PASS: '+$script:checks+' checks; configuration, exports, capabilities, display mode pairs, presets, labels and relocated controls. No system settings applied.'
 }finally{$win.Close()}

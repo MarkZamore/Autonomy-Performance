@@ -47,7 +47,6 @@ function Get-ExpectedPreview($configuration) {
         if($target.DynamicRefresh -ne 0){$text.Add($prefix+$(if($target.DynamicRefresh -eq 1){'включить динамическую частоту обновления'}else{'выключить динамическую частоту обновления'}))}
     }
     if($configuration.DarkTheme -eq 1){$text.Add('Включить тёмную тему Windows')}
-    if($configuration.TaskbarRepair -ne 0){$text.Add('Исправление панели задач - Режим '+$configuration.TaskbarRepair)}
     if($configuration.FanProfile -ne 0){$text.Add($(if($configuration.FanProfile -eq 2){'Производительный режим вентилятора'}else{'Тихий режим вентилятора'}))}
     if($configuration.WallpaperApplication -eq 1){$text.Add('Запустить Wallpaper Engine')}
     if($configuration.WallpaperPlayback -ne 0){$text.Add($(if($configuration.WallpaperPlayback -eq 1){'Продолжить воспроизведение обоев Wallpaper Engine'}else{'Поставить обои Wallpaper Engine на паузу'}))}
@@ -59,7 +58,7 @@ function Assert-Preset([bool]$performance,[string]$label) {
     $c=$ui.Configuration;Assert-Configuration $c $expected $label
     Assert ($c.EnergySaver -eq $(if(-not $capabilities.EnergySaver){0}elseif($performance){2}else{1})) ('Wrong energy saver: '+$label)
     Assert ($c.PowerMode -eq $(if(-not $capabilities.PowerMode){0}elseif($performance){3}else{1})) ('Wrong Windows power mode: '+$label)
-    Assert ($c.DarkTheme -eq $(if($capabilities.DarkTheme){1}else{0}) -and $c.TaskbarRepair -eq $(if($capabilities.TaskbarRepair){2}else{0})) ('Missing common actions: '+$label)
+    Assert ($c.DarkTheme -eq $(if($capabilities.DarkTheme){1}else{0})) ('Missing common actions: '+$label)
     Assert ($c.FanProfile -eq $(if(-not $capabilities.FanProfile){0}elseif($performance){2}else{1})) ('Wrong available fan mode: '+$label)
     Assert ($c.Brightness -eq -1 -and -not $win.FindName('BrightnessToggleButton').IsChecked) ('Preset selected brightness: '+$label)
     foreach($field in @('PresenceSleep','PresenceDim','AdaptiveBrightness','ScreenSaver','UsbPower','BatteryCare','NightLight','PresenceWake','PresenceOnlooker','BatteryPercentage','ClockSeconds')){
@@ -90,7 +89,7 @@ try {
             $label=$(if($performance){'performance'}else{'autonomy'})+'-'+$(if($custom){'custom'}else{'builtin'})
             $win.FindName('EnergySaverSwitch').IsChecked=$false;Set-FanMode 3
             $win.FindName('Balanced').IsChecked=$true;$win.FindName('BrightnessToggleButton').IsChecked=$true;$win.FindName('BrightnessSlider').Value=22
-            foreach($field in $additional){$win.FindName($field+'Switch').IsChecked=$true};$win.FindName('TaskbarRepairSwitch').IsChecked=$null
+            foreach($field in $additional){$win.FindName($field+'Switch').IsChecked=$true}
             foreach($display in @($win.FindName('DisplaySelector').Items)){
                 $win.FindName('DisplaySelector').SelectedItem=$display
                 $rates=$win.FindName('RefreshSelector');$choice=@($rates.Items|Where-Object {$_.Rate -gt 0})|Select-Object -First 1

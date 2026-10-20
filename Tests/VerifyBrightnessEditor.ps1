@@ -43,7 +43,6 @@ try{
  }
  $after=Read-Brightness
  Assert (($before|ConvertTo-Json -Compress) -eq ($after|ConvertTo-Json -Compress)) 'Editing future-script brightness applied an actual hardware value'
- foreach($mode in @(1,2)){$win.FindName('TaskbarRepairSwitch').IsChecked=if($mode -eq 1){$null}else{$true};Assert ($ui.PreviewText -eq ('Исправление панели задач - Режим '+$mode)) 'Taskbar repair preview is not the concise selected mode'}
  [pscustomobject]@{Passed=$true;Checks=$script:checks;Displays=$selector.Items.Count;SupportedPanels=$supported.Count;Target=$(if($target){$target}else{$null});HardwareValuesUnchanged=$true;ExportedExecutableRun=$false}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $art 'results.json') -Encoding UTF8
- 'PASS: '+$script:checks+' common-brightness checks; stable target independent of display selection, one preview/export action, reset and concise taskbar modes. Hardware brightness was not changed.'
+ 'PASS: '+$script:checks+' common-brightness checks; stable target independent of display selection, one preview/export action, reset. Hardware brightness was not changed.'
 }finally{$win.Close()}

@@ -59,7 +59,6 @@
                             <CheckBox x:Name="PresenceDimSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Автоматически уменьшать яркость, когда я отвожу взгляд"/></CheckBox>
                             <CheckBox x:Name="PresenceOnlookerSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Обнаружить, когда другие люди смотрят на мой экран"/></CheckBox>
                             <CheckBox x:Name="ClockSecondsSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Секунды в часах на панели задач"/></CheckBox>
-                            <CheckBox x:Name="TaskbarRepairSwitch" Style="{StaticResource TriStateSwitch}" IsChecked="False" ToolTip="Режим 1: Главная панель задач и панель задач, в которой открыто окно&#x0A;Режим 2: Панель задач, в которой открыто окно"><TextBlock Text="Исправление панели задач"/></CheckBox>
                         </StackPanel>
                     </Expander>
                     <Expander x:Name="ArmourySection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="Armoury Crate">

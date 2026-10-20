@@ -36,7 +36,6 @@ internal static class Runner
                 ModeConfiguration c=PeConfiguration.Read(Assembly.GetExecutingAssembly().Location);
                 if(c.BatteryPercentage!=0)report.Steps.Add(TaskbarControl.SetPreference(true,c.BatteryPercentage==1));
                 if(c.ClockSeconds!=0)report.Steps.Add(TaskbarControl.SetPreference(false,c.ClockSeconds==1));
-                if(c.TaskbarRepair!=0)report.Steps.Add(TaskbarControl.Apply(c.TaskbarRepair));
                 if(c.WallpaperApplication==1)report.Steps.Add(WallpaperControl.SetApplication(true));
                 if(c.BatteryCare!=0)report.Steps.Add(BatteryCareControl.Set(c.BatteryCare==1));
                 Guid? savedAC=null,savedDC=null;

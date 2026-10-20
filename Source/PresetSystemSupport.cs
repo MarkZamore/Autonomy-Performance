@@ -1,4 +1,4 @@
-using Microsoft.Win32;
+﻿using Microsoft.Win32;
 using System;
 using System.Runtime.InteropServices;
 
@@ -9,19 +9,15 @@ public sealed class PresetSystemSnapshot
     public bool EnergySaver;
     public bool PowerMode;
     public bool DarkTheme;
-    public bool TaskbarRepair;
     public bool FanProfile;
 }
 
 public static class PresetSystemSupport
 {
     const string PersonalizePath = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
-    const string TaskbarPath = @"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced";
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    static extern IntPtr FindWindow(string className, string windowName);
 
-    public static PresetSystemSnapshot Read(bool multipleDisplays)
+    public static PresetSystemSnapshot Read()
     {
         PresetSystemSnapshot result = new PresetSystemSnapshot();
         result.EnergySaver = WindowsControl.SupportsEnergySaver();
@@ -36,15 +32,6 @@ public static class PresetSystemSupport
         catch { }
         try { result.DarkTheme = CanReadExistingKey(PersonalizePath); }
         catch { }
-        if (multipleDisplays)
-        {
-            try
-            {
-                result.TaskbarRepair = FindWindow("Shell_TrayWnd", null) != IntPtr.Zero
-                    && CanReadExistingKey(TaskbarPath);
-            }
-            catch { }
-        }
         try { result.FanProfile = FanControl.ReadState().Available; }
         catch { }
         return result;

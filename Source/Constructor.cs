@@ -9,7 +9,7 @@ public sealed class ConstructorWindow
     readonly CheckBox[] powerChecks,switches;readonly Button save,iconButton;readonly Image currentIcon;readonly Popup popup;readonly UniformGrid icons;readonly TextBlock status;readonly ScrollViewer preview;readonly ItemsControl previewItems;readonly TextBlock previewEmpty;
     readonly CheckBox addToStartMenu;
     readonly ToggleButton brightnessToggle;readonly Slider brightnessSlider,nightLightSlider;readonly ComboBox fanSelector,displaySelector,resolutionSelector,refreshSelector,scaleSelector,contentBrightnessSelector;readonly TextBlock displayUnavailable;
-    static readonly string[] switchNames={"EnergySaverSwitch","DarkThemeSwitch","HdrSwitch","PresenceSleepSwitch","PresenceDimSwitch","AdaptiveBrightnessSwitch","ScreenSaverSwitch","UsbPowerSwitch","WallpaperPlaybackSwitch","WallpaperAudioSwitch","BatteryCareSwitch","WallpaperApplicationSwitch","TaskbarRepairSwitch","NightLightSwitch","DynamicRefreshSwitch","BatteryPercentageSwitch","ClockSecondsSwitch","PresenceWakeSwitch","PresenceOnlookerSwitch"};
+    static readonly string[] switchNames={"EnergySaverSwitch","DarkThemeSwitch","HdrSwitch","PresenceSleepSwitch","PresenceDimSwitch","AdaptiveBrightnessSwitch","ScreenSaverSwitch","UsbPowerSwitch","WallpaperPlaybackSwitch","WallpaperAudioSwitch","BatteryCareSwitch","WallpaperApplicationSwitch","NightLightSwitch","DynamicRefreshSwitch","BatteryPercentageSwitch","ClockSecondsSwitch","PresenceWakeSwitch","PresenceOnlookerSwitch"};
     bool updating,updatingDisplays;
     readonly DispatcherTimer displayRefreshTimer;HwndSource displayMessageSource;bool displayRefreshRunning,displayRefreshPending,displayObserverClosed;
     string savedScriptState;
@@ -43,7 +43,6 @@ public sealed class ConstructorWindow
             switches[i].PreviewMouseLeftButtonDown+=SwitchPointerDown;switches[i].PreviewKeyDown+=SwitchKeyDown;
             ControlMotion.AttachSwitch(switches[i]);
             System.Windows.Automation.AutomationProperties.SetHelpText(switches[i],"На тумблере: слева - выключить, по центру - не менять, справа - включить. Пробел переключает состояние; стрелки влево и вправо выбирают состояние, стрелка вниз - не менять.");
-            if(switches[i].Name=="TaskbarRepairSwitch")System.Windows.Automation.AutomationProperties.SetHelpText(switches[i],"На тумблере: слева - не менять, в центре - режим 1, справа - режим 2. Пробел переключает состояние.");
         }
         save=(Button)Window.FindName("SaveButton");iconButton=(Button)Window.FindName("IconButton");currentIcon=(Image)Window.FindName("CurrentIcon");popup=(Popup)Window.FindName("IconPopup");icons=(UniformGrid)Window.FindName("IconGrid");status=(TextBlock)Window.FindName("Status");preview=(ScrollViewer)Window.FindName("ScriptPreview");previewItems=(ItemsControl)Window.FindName("PreviewActions");previewEmpty=(TextBlock)Window.FindName("PreviewEmpty");
         addToStartMenu=(CheckBox)Window.FindName("AddToStartMenu");
@@ -134,7 +133,7 @@ public sealed class ConstructorWindow
                 PowerMode=SelectedMode(powerChecks),
                 DarkTheme=SwitchValue(Action("DarkThemeSwitch")),SleepTimeout=0,ScreenTimeout=0,
                 PresenceSleep=SwitchValue(Action("PresenceSleepSwitch")),PresenceDim=SwitchValue(Action("PresenceDimSwitch")),
-                AdaptiveBrightness=SwitchValue(Action("AdaptiveBrightnessSwitch")),ScreenSaver=SwitchValue(Action("ScreenSaverSwitch")),UsbPower=SwitchValue(Action("UsbPowerSwitch")),WallpaperPlayback=SwitchValue(Action("WallpaperPlaybackSwitch")),WallpaperAudio=SwitchValue(Action("WallpaperAudioSwitch")),BatteryCare=SwitchValue(Action("BatteryCareSwitch")),WallpaperApplication=SwitchValue(Action("WallpaperApplicationSwitch")),TaskbarRepair=Action("TaskbarRepairSwitch").IsChecked==false?0:Action("TaskbarRepairSwitch").IsChecked==true?2:1,
+                AdaptiveBrightness=SwitchValue(Action("AdaptiveBrightnessSwitch")),ScreenSaver=SwitchValue(Action("ScreenSaverSwitch")),UsbPower=SwitchValue(Action("UsbPowerSwitch")),WallpaperPlayback=SwitchValue(Action("WallpaperPlaybackSwitch")),WallpaperAudio=SwitchValue(Action("WallpaperAudioSwitch")),BatteryCare=SwitchValue(Action("BatteryCareSwitch")),WallpaperApplication=SwitchValue(Action("WallpaperApplicationSwitch")),
                 PresenceWake=SwitchValue(Action("PresenceWakeSwitch")),PresenceOnlooker=SwitchValue(Action("PresenceOnlookerSwitch")),BatteryPercentage=SwitchValue(Action("BatteryPercentageSwitch")),ClockSeconds=SwitchValue(Action("ClockSecondsSwitch")),NightLight=SwitchValue(Action("NightLightSwitch")),NightLightStrength=(int)Math.Round(nightLightSlider.Value)};
         }
     }
@@ -208,7 +207,6 @@ public sealed class ConstructorWindow
     static void CycleSwitch(CheckBox control)
     {
         if(!control.IsThreeState)control.IsChecked=control.IsChecked!=true;
-        else if(control.Name=="TaskbarRepairSwitch")control.IsChecked=control.IsChecked==false?null:control.IsChecked==null?(bool?)true:false;
         else control.IsChecked=control.IsChecked==null?true:control.IsChecked==true?(bool?)false:null;
     }
     void SwitchPointerDown(object sender,MouseButtonEventArgs e)
@@ -243,13 +241,6 @@ public sealed class ConstructorWindow
             if(e.Key==Key.Left||e.Key==Key.Home||e.Key==Key.Delete)control.IsChecked=false;
             else if(e.Key==Key.Right||e.Key==Key.End)control.IsChecked=true;else return;e.Handled=true;return;
         }
-        if(control.Name=="TaskbarRepairSwitch"){
-            int value=control.IsChecked==false?0:control.IsChecked==true?2:1;
-            if(e.Key==Key.Left||e.Key==Key.Down)value=Math.Max(0,value-1);
-            else if(e.Key==Key.Right||e.Key==Key.Up)value=Math.Min(2,value+1);
-            else if(e.Key==Key.Home||e.Key==Key.Delete)value=0;else if(e.Key==Key.End)value=2;else return;
-            control.IsChecked=value==0?(bool?)false:value==2?(bool?)true:null;e.Handled=true;return;
-        }
         if(e.Key==Key.Left||e.Key==Key.Home)control.IsChecked=false;
         else if(e.Key==Key.Right||e.Key==Key.End)control.IsChecked=true;
         else if(e.Key==Key.Down||e.Key==Key.Up||e.Key==Key.Delete)control.IsChecked=null;
@@ -262,7 +253,7 @@ public sealed class ConstructorWindow
         bool previousUpdating=updating,previousDisplays=updatingDisplays;
         updating=true;updatingDisplays=true;
         try{
-            foreach(CheckBox check in switches)check.IsChecked=check.Name=="TaskbarRepairSwitch"?(bool?)false:null;
+            foreach(CheckBox check in switches)check.IsChecked=null;
             for(int i=0;i<powerChecks.Length;i++)powerChecks[i].IsChecked=preset.PowerMode==i+1;
             SetFanProfile(preset.FanProfile);
             SetPresetSwitch("EnergySaverSwitch",preset.EnergySaver);
@@ -270,7 +261,6 @@ public sealed class ConstructorWindow
             SetPresetSwitch("WallpaperPlaybackSwitch",preset.WallpaperPlayback);
             SetPresetSwitch("WallpaperAudioSwitch",preset.WallpaperAudio);
             SetPresetSwitch("WallpaperApplicationSwitch",preset.WallpaperApplication);
-            Action("TaskbarRepairSwitch").IsChecked=preset.TaskbarRepair==0?(bool?)false:preset.TaskbarRepair==2?(bool?)true:null;
             displaySettings.Clear();nightLightSlider.Value=50;
             foreach(DisplayModeConfiguration display in preset.Displays)displaySettings[display.DisplayId]=CloneDisplay(display);
             LoadDisplayEditor();
@@ -280,12 +270,11 @@ public sealed class ConstructorWindow
     void SetPresetSwitch(string name,int value){Action(name).IsChecked=value==0?(bool?)null:value==1;}
     PresetCapabilities ReadPresetCapabilities(bool performance)
     {
-        PresetSystemSnapshot system=PresetSystemSupport.Read(displaySelector.Items.Count>1);
+        PresetSystemSnapshot system=PresetSystemSupport.Read();
         PresetCapabilities capabilities=new PresetCapabilities{
             EnergySaver=system.EnergySaver&&Action("EnergySaverSwitch").IsEnabled,
             PowerMode=system.PowerMode&&powerChecks[performance?2:0].IsEnabled,
             DarkTheme=system.DarkTheme&&Action("DarkThemeSwitch").IsEnabled,
-            TaskbarRepair=system.TaskbarRepair&&Action("TaskbarRepairSwitch").IsEnabled,
             FanProfile=system.FanProfile&&fanSelector.IsEnabled,
             WallpaperPlayback=Action("WallpaperPlaybackSwitch").IsEnabled,
             WallpaperAudio=Action("WallpaperAudioSwitch").IsEnabled,
@@ -309,7 +298,7 @@ public sealed class ConstructorWindow
     }
     public void ResetScript(){
         bool previous=updating,previousDisplays=updatingDisplays;updating=true;updatingDisplays=true;
-        try{foreach(CheckBox check in switches)check.IsChecked=check.Name=="TaskbarRepairSwitch"?(bool?)false:null;foreach(CheckBox check in powerChecks)check.IsChecked=false;SetFanProfile(0);displaySettings.Clear();nightLightSlider.Value=50;LoadDisplayEditor();}
+        try{foreach(CheckBox check in switches)check.IsChecked=null;foreach(CheckBox check in powerChecks)check.IsChecked=false;SetFanProfile(0);displaySettings.Clear();nightLightSlider.Value=50;LoadDisplayEditor();}
         finally{updating=previous;updatingDisplays=previousDisplays;}
         SelectionChanged(null,null);
     }
@@ -449,7 +438,6 @@ public sealed class ConstructorWindow
         PreviewSwitch("PresenceDimSwitch",c.PresenceDim,"Автоматически уменьшать яркость, когда я отвожу взгляд","Не уменьшать яркость, когда я отвожу взгляд");
         PreviewSwitch("PresenceOnlookerSwitch",c.PresenceOnlooker,"Обнаружить, когда другие люди смотрят на мой экран","Выключить обнаружение других людей, смотрящих на экран");
         PreviewSwitch("ClockSecondsSwitch",c.ClockSeconds,"Показывать секунды в часах на панели задач","Скрыть секунды в часах на панели задач");
-        if(c.TaskbarRepair!=0)AddPreview("TaskbarRepairSwitch",null,"Исправление панели задач - Режим "+c.TaskbarRepair);
         if(c.FanProfile!=0)AddPreview("FanProfile",null,c.FanProfile==1?"Тихий режим вентилятора":c.FanProfile==2?"Производительный режим вентилятора":"Стандартный режим вентилятора");
         PreviewSwitch("BatteryCareSwitch",c.BatteryCare,"Включить режим бережной зарядки","Выключить режим бережной зарядки");
         PreviewSwitch("WallpaperApplicationSwitch",c.WallpaperApplication,"Запустить Wallpaper Engine","Завершить Wallpaper Engine");
@@ -505,7 +493,7 @@ public sealed class ConstructorWindow
             }if(entry.Key=="Brightness"||String.Equals(entry.DisplayId,editingDisplayId,StringComparison.OrdinalIgnoreCase))LoadDisplayEditor();}
             else if(entry.Key=="PowerMode")foreach(CheckBox check in powerChecks)check.IsChecked=false;
             else if(entry.Key=="FanProfile")SetFanProfile(0);
-            else Action(entry.Key).IsChecked=entry.Key=="TaskbarRepairSwitch"?(bool?)false:null;
+            else Action(entry.Key).IsChecked=null;
         }finally{updating=previous;}
         SelectionChanged(null,null);
     }

@@ -76,7 +76,7 @@ try{
         Assert ($state -eq $case[2]) 'Pointer position does not choose the corresponding switch track state'
     }
     $selectPosition=$ui.GetType().GetMethod('SelectSwitchPosition',[Reflection.BindingFlags]'Static,NonPublic')
-    $taskbarToggle=$win.FindName('TaskbarRepairSwitch');$binaryToggle=$win.FindName('BrightnessToggleButton')
+    $binaryToggle=$win.FindName('BrightnessToggleButton')
     foreach($case in @(
         @{Control=$saver;Start=$null;Position=0.5;Thumb=$false;Expected=$true;Name='neutral center'},
         @{Control=$saver;Start=$true;Position=0.9;Thumb=$false;Expected=$false;Name='selected on zone'},
@@ -84,9 +84,6 @@ try{
         @{Control=$saver;Start=$true;Position=0.1;Thumb=$true;Expected=$false;Name='animated thumb outside on zone'},
         @{Control=$saver;Start=$false;Position=0.9;Thumb=$true;Expected=$null;Name='animated thumb outside off zone'},
         @{Control=$saver;Start=$true;Position=0.5;Thumb=$false;Expected=$null;Name='different neutral zone'},
-        @{Control=$taskbarToggle;Start=$false;Position=0.1;Thumb=$false;Expected=$null;Name='taskbar unchanged thumb zone'},
-        @{Control=$taskbarToggle;Start=$null;Position=0.5;Thumb=$true;Expected=$true;Name='taskbar mode one thumb'},
-        @{Control=$taskbarToggle;Start=$true;Position=0.9;Thumb=$true;Expected=$false;Name='taskbar mode two thumb'},
         @{Control=$binaryToggle;Start=$false;Position=0.1;Thumb=$false;Expected=$true;Name='binary unchanged zone'},
         @{Control=$binaryToggle;Start=$true;Position=0.9;Thumb=$true;Expected=$false;Name='binary enabled thumb'}
     )){
@@ -94,7 +91,7 @@ try{
         [void]$selectPosition.Invoke($null,[object[]]@($case.Control,[double]$case.Position,[bool]$case.Thumb))
         Assert ($case.Control.IsChecked -eq $case.Expected) ('Selected switch zone or thumb did not advance correctly: '+$case.Name)
     }
-    $saver.IsChecked=$null;$taskbarToggle.IsChecked=$false;$binaryToggle.IsChecked=$false
+    $saver.IsChecked=$null;$binaryToggle.IsChecked=$false
     $saver.IsEnabled=$false
     Assert (-not (Click-SwitchSurface $saver $saver.Content) -and $null -eq $saver.IsChecked) 'Disabled switch accepted pointer input'
     $saver.IsEnabled=$true
@@ -158,9 +155,7 @@ try{
     $iconButton=$win.FindName('IconButton')
     Assert ($iconButton.ToolTip -eq 'Выбрать иконку') 'Icon button tooltip was removed or renamed'
     $elements=@(Get-UiElements);$tooltipOwners=@($elements|Where-Object {$null -ne [Windows.Controls.ToolTipService]::GetToolTip($_)})
-    $taskbar=$win.FindName('TaskbarRepairSwitch')
-    foreach($owner in $tooltipOwners){Assert (([object]::ReferenceEquals($owner,$iconButton)) -or ([object]::ReferenceEquals($owner,$taskbar)) -or ([object]::ReferenceEquals($owner,$win.FindName('AddToStartMenu'))) -or ($owner -is [Windows.Controls.Button] -and $owner.Tag -is [int] -and [int]$owner.Tag -lt 5)) 'Unexpected tooltip outside icon choices, taskbar repair and Start menu option'}
-    Assert ($taskbar.ToolTip -eq "Режим 1: Главная панель задач и панель задач, в которой открыто окно`nРежим 2: Панель задач, в которой открыто окно") 'Taskbar tooltip does not show the two final modes on separate lines'
+    foreach($owner in $tooltipOwners){Assert (([object]::ReferenceEquals($owner,$iconButton)) -or ([object]::ReferenceEquals($owner,$win.FindName('AddToStartMenu'))) -or ($owner -is [Windows.Controls.Button] -and $owner.Tag -is [int] -and [int]$owner.Tag -lt 5)) 'Unexpected tooltip outside icon choices and Start menu option'}
     foreach($tile in $win.FindName('IconGrid').Children){Assert (-not [string]::IsNullOrEmpty([Windows.Automation.AutomationProperties]::GetName($tile))) 'Icon tile lost its accessible label'}
     $focusedKey=[Windows.UIElement].GetField('IsKeyboardFocusedPropertyKey',[Reflection.BindingFlags]'Static,NonPublic').GetValue($null)
     foreach($name in @('PresetAutonomyButton','PresetPerformanceButton','IconButton','SaveButton','ResetScriptButton','FanModeSelector','DisplaySelector','RefreshSelector','ScriptPreview')){

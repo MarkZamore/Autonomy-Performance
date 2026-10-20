@@ -31,7 +31,7 @@ function Assert-PresetIntegration([bool]$performance){
     Assert ((Copy-Configuration) -eq [System.Web.Script.Serialization.JavaScriptSerializer]::new().Serialize($expected)) 'Preset UI lost or changed a capability-filtered action'
     Assert ($ui.Configuration.Brightness -eq -1 -and @($ui.Configuration.Displays|Where-Object {$_.Brightness -ge 0 -or $_.ContentBrightness -ne 0}).Count -eq 0) 'Preset retained an unrelated brightness action'
     Assert ($ui.Configuration.NightLight -eq 0 -and $ui.Configuration.BatteryCare -eq 0 -and $ui.Configuration.ClockSeconds -eq 0) 'Preset retained an unrelated global action'
-    Assert ($ui.Configuration.DarkTheme -eq $(if($capabilities.DarkTheme){1}else{0}) -and $ui.Configuration.TaskbarRepair -eq $(if($capabilities.TaskbarRepair){2}else{0})) 'Preset missed the requested theme/taskbar choice'
+    Assert ($ui.Configuration.DarkTheme -eq $(if($capabilities.DarkTheme){1}else{0})) 'Preset missed the requested theme/taskbar choice'
 }
 try {
     $preview=Control 'ScriptPreview';$reset=Control 'ResetScriptButton';$display=Control 'DisplaySelector'
@@ -62,8 +62,6 @@ try {
         Assert ($additional[$batteryIndex+$i+1] -eq $presence[$i]) 'Presence actions are not immediately after battery percentage in the requested order'
         Assert ((Label (Control $presence[$i])) -eq $presenceText[$i]) ('Presence caption changed: '+$presence[$i])
     }
-    $tip=[string](Control 'TaskbarRepairSwitch').ToolTip
-    Assert ($tip -eq "Режим 1: Главная панель задач и панель задач, в которой открыто окно`nРежим 2: Панель задач, в которой открыто окно") 'Taskbar repair does not have the exact two-line explanation'
     $windowStream=$assembly.GetManifestResourceStream('Window');$reader=[IO.StreamReader]::new($windowStream)
     try{$windowXaml=$reader.ReadToEnd()}finally{$reader.Dispose()}
     Assert ($windowXaml -notmatch 'вентиляторов|без Steam') 'Outdated fan/Steam text remains in the interface'
@@ -172,7 +170,6 @@ try {
     $preview.SetValue($focusedKey,$false)
     foreach($name in $categoryNames){(Control $name).IsExpanded=$true}
     foreach($name in @('WallpaperPlaybackSwitch','WallpaperAudioSwitch','WallpaperApplicationSwitch','ScreenSaverSwitch','UsbPowerSwitch','ClockSecondsSwitch')){(Control $name).IsChecked=$true}
-    (Control 'TaskbarRepairSwitch').IsChecked=$true
     $grid=Layout 984 661
     $performance=Control 'PresetPerformanceButton';$battery=Control 'BatteryWear'
     $right=$performance.TranslatePoint([Windows.Point]::new($performance.ActualWidth,0),$grid).X

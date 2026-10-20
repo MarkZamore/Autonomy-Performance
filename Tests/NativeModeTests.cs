@@ -10,7 +10,6 @@ class NativeModeTests{
   }
   int rate=BatteryCareControl.ReadRate();if(rate==100){try{for(int i=0;i<2;i++){Ok(BatteryCareControl.Set(true));Check(BatteryCareControl.ReadRate()==80,"Wrong charging limit");Ok(BatteryCareControl.Set(false));}}finally{Ok(BatteryCareControl.Set(false));}Check(BatteryCareControl.ReadRate()==rate,"Charging state not restored");}
   using(RegistryKey key=Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",false)){
-   int mode=Convert.ToInt32(key.GetValue("MMTaskbarMode",0));if(mode==1||mode==2){int pid=Process.GetProcessesByName("explorer")[0].Id;try{foreach(int target in new[]{1,1,2,2}){Ok(TaskbarControl.Apply(target));Check(Convert.ToInt32(key.GetValue("MMTaskbarMode"))==target,"Wrong taskbar mode");}}finally{Ok(TaskbarControl.Apply(mode));}Check(pid==Process.GetProcessesByName("explorer")[0].Id,"Explorer restarted");}
    foreach(bool battery in new[]{false,true}){string name=battery?"IsBatteryPercentageEnabled":"ShowSecondsInSystemClock";object original=key.GetValue(name,null);if(!(original is int))continue;bool enabled=(int)original!=0;try{Ok(TaskbarControl.SetPreference(battery,!enabled));Check(Convert.ToInt32(key.GetValue(name))==(enabled?0:1),"Taskbar preference did not change");Ok(TaskbarControl.SetPreference(battery,enabled));}finally{Ok(TaskbarControl.SetPreference(battery,enabled));}}
   }
   foreach(DisplayInfo d in DisplayControl.Enumerate()){

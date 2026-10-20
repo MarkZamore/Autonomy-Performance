@@ -4,7 +4,7 @@ using System.Collections.Generic;
 // These inputs describe capabilities only. Building a preset never applies it.
 public sealed class PresetCapabilities
 {
-    public bool EnergySaver, PowerMode, DarkTheme, TaskbarRepair, FanProfile;
+    public bool EnergySaver, PowerMode, DarkTheme, FanProfile;
     public bool WallpaperPlayback, WallpaperAudio, WallpaperApplication;
     public List<PresetDisplayCapabilities> Displays = new List<PresetDisplayCapabilities>();
 }
@@ -26,7 +26,6 @@ public static class PresetBuilder
             EnergySaver = capabilities.EnergySaver ? (performance ? 2 : 1) : 0,
             PowerMode = capabilities.PowerMode ? (performance ? 3 : 1) : 0,
             DarkTheme = capabilities.DarkTheme ? 1 : 0,
-            TaskbarRepair = capabilities.TaskbarRepair ? 2 : 0,
             FanProfile = capabilities.FanProfile ? (performance ? 2 : 1) : 0,
             WallpaperPlayback = capabilities.WallpaperPlayback ? (performance ? 1 : 2) : 0,
             WallpaperAudio = capabilities.WallpaperAudio ? (performance ? 1 : 2) : 0,

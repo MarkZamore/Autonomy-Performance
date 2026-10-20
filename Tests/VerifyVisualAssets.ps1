@@ -43,6 +43,6 @@ Render $states 500 168 (Join-Path $PSScriptRoot 'Artifacts\ui-switch-states.png'
 $brightnessStates=New-Object Windows.Controls.StackPanel
 foreach($enabled in @($false,$true)){$button=New-Object Windows.Controls.CheckBox;$button.Name='BrightnessToggleButton';$button.Style=$app.Resources['BinaryActionSwitch'];$button.Content='Яркость';$button.IsChecked=$enabled;[ControlMotion]::AttachSwitch($button);[void]$brightnessStates.Children.Add($button)}
 Render $brightnessStates 500 112 (Join-Path $PSScriptRoot 'Artifacts\ui-brightness-states.png')
-$win.FindName('WallpaperSection').IsExpanded=$false;$win.FindName('AdditionalSection').IsExpanded=$true;$win.FindName('TaskbarRepairSwitch').IsChecked=$true
+$win.FindName('WallpaperSection').IsExpanded=$false;$win.FindName('AdditionalSection').IsExpanded=$true
 $win.FindName('SettingsScroll').ScrollToVerticalOffset(160);$grid.UpdateLayout();Render $grid 984 661 (Join-Path $PSScriptRoot 'Artifacts\ui-additional.png')
 }finally{$win.Close()}

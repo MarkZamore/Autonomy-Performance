@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Web.Script.Serialization;
@@ -20,7 +20,7 @@ static class AdaptivePresetTests
     }
     static PresetCapabilities Complete()
     {
-        return new PresetCapabilities { EnergySaver=true,PowerMode=true,DarkTheme=true,TaskbarRepair=true,FanProfile=true,WallpaperPlayback=true,WallpaperAudio=true,WallpaperApplication=true };
+        return new PresetCapabilities { EnergySaver=true,PowerMode=true,DarkTheme=true,FanProfile=true,WallpaperPlayback=true,WallpaperAudio=true,WallpaperApplication=true };
     }
     static DisplayModeConfiguration Find(ModeConfiguration configuration,string id)
     {
@@ -57,7 +57,7 @@ static class AdaptivePresetTests
             ModeConfiguration configuration=PresetBuilder.Build(performance,capabilities);configuration.Validate();
             Assert(configuration.EnergySaver==(performance?2:1),"Wrong energy-saver direction");
             Assert(configuration.PowerMode==(performance?3:1),"Wrong Windows power mode");
-            Assert(configuration.DarkTheme==1&&configuration.TaskbarRepair==2,"Shared dark theme/taskbar repair missing");
+            Assert(configuration.DarkTheme==1,"Shared dark theme missing");
             Assert(configuration.FanProfile==(performance?2:1),"Wrong ASUS fan mode");
             Assert(configuration.WallpaperPlayback==(performance?1:2)&&configuration.WallpaperAudio==(performance?1:2),"Wrong wallpaper playback/audio direction");
             Assert(configuration.WallpaperApplication==(performance?1:0),"Wallpaper launch belongs only to performance");
@@ -92,12 +92,12 @@ static class AdaptivePresetTests
             Assert(!empty.HasActions&&empty.GetDisplayActions().Length==0,"A machine with no available features must remain empty");
             Unrequested(empty,"Unavailable capabilities");
         }
-        foreach(string feature in new[]{"EnergySaver","PowerMode","DarkTheme","TaskbarRepair","FanProfile","WallpaperPlayback","WallpaperAudio","WallpaperApplication"}) {
+        foreach(string feature in new[]{"EnergySaver","PowerMode","DarkTheme","FanProfile","WallpaperPlayback","WallpaperAudio","WallpaperApplication"}) {
             PresetCapabilities available=new PresetCapabilities();typeof(PresetCapabilities).GetField(feature).SetValue(available,true);
             foreach(bool performance in new[]{false,true}) {
                 ModeConfiguration configuration=PresetBuilder.Build(performance,available);configuration.Validate();
-                foreach(string action in new[]{"EnergySaver","PowerMode","DarkTheme","TaskbarRepair","FanProfile","WallpaperPlayback","WallpaperAudio","WallpaperApplication"}) {
-                    int expected=action!=feature?0:action=="EnergySaver"?(performance?2:1):action=="PowerMode"?(performance?3:1):action=="TaskbarRepair"?2:action=="FanProfile"?(performance?2:1):action=="WallpaperPlayback"||action=="WallpaperAudio"?(performance?1:2):action=="WallpaperApplication"?(performance?1:0):1;
+                foreach(string action in new[]{"EnergySaver","PowerMode","DarkTheme","FanProfile","WallpaperPlayback","WallpaperAudio","WallpaperApplication"}) {
+                    int expected=action!=feature?0:action=="EnergySaver"?(performance?2:1):action=="PowerMode"?(performance?3:1):action=="FanProfile"?(performance?2:1):action=="WallpaperPlayback"||action=="WallpaperAudio"?(performance?1:2):action=="WallpaperApplication"?(performance?1:0):1;
                     Assert((int)typeof(ModeConfiguration).GetField(action).GetValue(configuration)==expected,"Capability gating failed: "+feature+" / "+action);
                 }
                 Unrequested(configuration,"Single capability "+feature);
