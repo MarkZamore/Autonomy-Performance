@@ -175,6 +175,18 @@ public static class PortableResources
     {
         Image image=Parse(executable);Node types=Child(image.Root,new Key(10),false);Require(types!=null);Node names=Child(types,new Key(PeConfiguration.ResourceName),false);Require(names!=null);Node leaf=Child(names,new Key(0),false);Require(leaf!=null&&leaf.Children==null&&leaf.Data.Length>0&&leaf.Data.Length<=65536);return leaf.Data;
     }
+    internal static bool HaveSameIcon(byte[] first,byte[] second)
+    {
+        Image oldImage=Parse(first),newImage=Parse(second);
+        foreach(int type in new int[]{3,14}){
+            Node oldNode=Child(oldImage.Root,new Key(type),false),newNode=Child(newImage.Root,new Key(type),false);
+            if(oldNode==null||newNode==null){if(oldNode!=newNode)return false;continue;}
+            byte[] oldBytes=BuildTree(oldNode,0),newBytes=BuildTree(newNode,0);
+            if(oldBytes.Length!=newBytes.Length)return false;
+            for(int i=0;i<oldBytes.Length;i++)if(oldBytes[i]!=newBytes[i])return false;
+        }
+        return true;
+    }
     public static byte[] RemoveVersion(byte[] executable,out bool changed)
     {
         Image image=Parse(executable);changed=image.Root.Children.Remove(new Key(16));return changed?Rebuild(image):executable;

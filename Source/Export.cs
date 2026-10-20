@@ -38,9 +38,33 @@ public static class IconFile
         return bytes;
     }
 }
+// Ask the Shell to reread changed EXE icons without deleting caches or restarting Explorer.
+internal static class ShellIconRefresh
+{
+    const uint IconsChanged=0x08000000,ItemChanged=0x2000,DirectoryChanged=0x1000;
+    const uint Flush=0x1000,UnicodePathAndFlush=0x1005;
+    [DllImport("shell32.dll",CharSet=CharSet.Unicode)]
+    static extern void SHChangeNotify(uint change,uint flags,string first,IntPtr second);
+    internal static bool NeedsRefresh(string path,byte[] replacement)
+    {
+        if(!File.Exists(path))return false;
+        try{return !PortableResources.HaveSameIcon(File.ReadAllBytes(path),replacement);}
+        catch{return true;}
+    }
+    internal static void Changed(string path,bool iconChanged)
+    {
+        try {
+            // UPDATEITEM alone leaves Explorer's same-path icon cache stale. Only an icon
+            // change triggers Shell cache invalidation; configuration-only saves do not.
+            if(iconChanged)SHChangeNotify(IconsChanged,Flush,null,IntPtr.Zero);
+            // FLUSH waits for notification delivery, unlike the former FLUSHNOWAIT.
+            SHChangeNotify(ItemChanged,UnicodePathAndFlush,path,IntPtr.Zero);
+            SHChangeNotify(DirectoryChanged,UnicodePathAndFlush,Path.GetDirectoryName(path),IntPtr.Zero);
+        }catch{ /* A Shell refresh failure must not invalidate a successful export. */ }
+    }
+}
 public static class ExecutableExporter
 {
-    [DllImport("shell32.dll",CharSet=CharSet.Unicode)]static extern void SHChangeNotify(uint change,uint flags,string first,IntPtr second);
     static void Commit(string temp,string destination)
     {
         for(int attempt=0;;attempt++){
@@ -65,7 +89,7 @@ public static class ExecutableExporter
         try{
             File.WriteAllBytes(temp,output);
             Commit(temp,executable);
-            SHChangeNotify(0x2000,0x2005,executable,IntPtr.Zero);
+            ShellIconRefresh.Changed(executable,false);
             return true;
         }finally{if(File.Exists(temp))File.Delete(temp);}
     }
@@ -78,11 +102,12 @@ public static class ExecutableExporter
         byte[] data=Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(config));
         byte[] executable=PortableResources.CreateModeExecutable(EmbeddedAssets.Read("RunnerTemplate"),data,icon);
         if(!Equal(data,PortableResources.ReadConfiguration(executable)))throw new InvalidDataException("Не удалось проверить настройки создаваемого файла.");
+        bool iconChanged=ShellIconRefresh.NeedsRefresh(destination,executable);
         string temp=Path.Combine(Path.GetDirectoryName(destination),".ap-"+Guid.NewGuid().ToString("N")+".tmp");
         try{
             File.WriteAllBytes(temp,executable);
             Commit(temp,destination);
-            SHChangeNotify(0x2000,0x2005,destination,IntPtr.Zero);
+            ShellIconRefresh.Changed(destination,iconChanged);
         }finally{if(File.Exists(temp))File.Delete(temp);}
     }
 }
