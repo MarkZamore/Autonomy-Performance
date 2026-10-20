@@ -37,6 +37,15 @@ try{
  Assert ($owned -and [string]::Equals($arguments[1],$target,[StringComparison]::OrdinalIgnoreCase)) 'Saved menu link does not point at the selected EXE'
  Assert ([IO.Directory]::GetFiles($folder,$name+'*.lnk').Length -eq 1) 'Export creates duplicate links'
  [void]$save.Invoke($ui,[object[]]@([string]$target));Assert ([IO.Directory]::GetFiles($folder,$name+'*.lnk').Length -eq 1) 'Repeated export duplicates its menu link'
+ $readFingerprint=[StartMenuShortcuts].GetMethod('ReadFingerprint',[Reflection.BindingFlags]'Static,NonPublic')
+ $oldFingerprint=$readFingerprint.Invoke($null,[object[]]@([string]$shortcut,[string]$target))
+ Assert ($oldFingerprint -match '^\d+:[A-F0-9]{64}$') 'Created shortcut has no portable fingerprint'
+ $config=New-Object ModeConfiguration;$config.DarkTheme=2
+ [ExecutableExporter]::Save($target,$config,[EmbeddedAssets]::Read('Icon0'))
+ $newFingerprint=$readFingerprint.Invoke($null,[object[]]@([string]$shortcut,[string]$target))
+ $digest=[Security.Cryptography.SHA256]::Create()
+ try{$expected=([IO.FileInfo]$target).Length.ToString()+':'+[BitConverter]::ToString($digest.ComputeHash([IO.File]::ReadAllBytes($target))).Replace('-','')}finally{$digest.Dispose()}
+ Assert ($newFingerprint -eq $expected -and $newFingerprint -ne $oldFingerprint) 'Configuration-only overwrite does not refresh existing shortcut fingerprint'
  @{Passed=$true;Checks=$script:checks;DefaultChecked=$true;InsidePreview=$true;RealNativeLinkCreatedAndRemoved=$true;StartupCleanupWired=$true;ExportExecuted=$false}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $art 'results.json') -Encoding UTF8
  'PASS: '+$script:checks+' Start menu option checks; one real test shortcut created and removed, exported EXE not executed.'
 }finally{

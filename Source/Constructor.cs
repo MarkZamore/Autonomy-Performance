@@ -602,5 +602,5 @@ public static class ConstructorApp
         return Run();
     }
     [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
-    static int Run(){try{Application app=new Application();app.ShutdownMode=ShutdownMode.OnMainWindowClose;StartMenuShortcuts.Cleanup();ConstructorWindow ui=new ConstructorWindow();return app.Run(ui.Window);}catch{return 1;}}
+    static int Run(){try{Application app=new Application();app.ShutdownMode=ShutdownMode.OnMainWindowClose;StartMenuShortcuts.Cleanup();ConstructorWindow ui=new ConstructorWindow();return app.Run(ui.Window);}catch{return 1;}finally{StartMenuShortcuts.StopCleanup();}}
 }

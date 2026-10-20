@@ -61,6 +61,7 @@ internal static class ShellIconRefresh
     internal static void Changed(string path,bool iconChanged,int previousIndex=-1,int newIndex=-1)
     {
         try {
+            StartMenuShortcuts.RememberTarget(path);
             // UPDATEITEM alone leaves Explorer's same-path icon cache stale. Only an icon
             // change triggers Shell cache invalidation; configuration-only saves do not.
             if(iconChanged){StartMenuShortcuts.RefreshIcons(path,previousIndex,newIndex);SHChangeNotify(IconsChanged,Flush,null,IntPtr.Zero);}

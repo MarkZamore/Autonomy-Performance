@@ -160,6 +160,70 @@ static class StartMenuShortcutsTests
         Assert(StartMenuShortcuts.CleanupInFolder(programs,false,unpin)==1&&StartMenuShortcuts.CleanupInFolder(taskbar,false,unpin)==1,"Actually deleted relocated script is not cleaned up");
         Assert(File.Exists(decoy),"Cleanup changes an unrelated executable");
     }
+    static string FingerprintOf(string link,string target)
+    {return (string)typeof(StartMenuShortcuts).GetMethod("ReadFingerprint",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,new object[]{link,target});}
+    static void ClearFingerprint(string path)
+    {
+        object native=Activator.CreateInstance(Type.GetTypeFromCLSID(new Guid("00021401-0000-0000-C000-000000000046")));
+        try{
+            ((IPersistFile)native).Load(path,2);IPropertyStore store=(IPropertyStore)native;PropertyKey key=new PropertyKey{Format=new Guid("C29A0D69-2D22-4CC5-99D7-34C3CA52B6F9"),Id=2};PropVariant empty=new PropVariant();store.SetValue(ref key,ref empty);store.Commit();((IPersistFile)native).Save(path,true);
+        }finally{Marshal.FinalReleaseComObject(native);}
+    }
+    static StartMenuShortcuts.SearchContext Search(string root)
+    {return new StartMenuShortcuts.SearchContext(new string[]{root},false){UseNativeTracking=false};}
+    static void VerifyCopyDeleteRelocation(string root)
+    {
+        string source=Path.Combine(root,"CopySource"),destination=Path.Combine(root,"CopyDestination"),programs=Path.Combine(root,"CopyPrograms"),taskbar=Path.Combine(root,"CopyTaskbar");
+        Directory.CreateDirectory(source);Directory.CreateDirectory(Path.Combine(destination,"Вложенная папка"));
+        string exe=Path.Combine(source,"Portable.exe"),moved=Path.Combine(destination,"Вложенная папка","Переименованный.exe");
+        byte[] original={77,90,42,21,10,1};File.WriteAllBytes(exe,original);
+        string link=StartMenuShortcuts.CreateInFolder(exe,programs),pin=StartMenuShortcuts.CreateInFolder(exe,taskbar);
+        string fingerprint=FingerprintOf(link,exe);Assert(fingerprint!=null&&fingerprint==FingerprintOf(pin,exe),"Fingerprint was not persisted in both native links");
+        AppId(pin,"AutonomyPerformance.CopyDelete");Edit(pin,"SetWorkingDirectory",root);EditValues(pin,"SetIconLocation",new object[]{exe,-3456});
+        string foreign=Path.Combine(programs,"Foreign.lnk");File.Copy(link,foreign);Edit(foreign,"SetDescription","User shortcut");
+        string args=Path.Combine(programs,"Arguments.lnk");File.Copy(link,args);Edit(args,"SetArguments","--keep");
+        string custom=Path.Combine(programs,"ExternalIcon.lnk");File.Copy(link,custom);EditValues(custom,"SetIconLocation",new object[]{Path.Combine(root,"Custom.ico"),0});
+        string[] protectedPaths={foreign,args,custom};string[] before=Array.ConvertAll(protectedPaths,delegate(string p){return Convert.ToBase64String(File.ReadAllBytes(p));});
+        // Copy/delete changes file identity just like a cross-filesystem move.
+        // Native tracking is explicitly disabled: only the portable hash search can pass.
+        File.Copy(exe,moved);File.Delete(exe);int unpins=0;Func<string,bool> unpin=delegate(string p){unpins++;return true;};
+        string decoy=Path.Combine(destination,"Portable.exe");File.WriteAllBytes(decoy,new byte[]{77,90,42,21,10,2});
+        StartMenuShortcuts.SearchContext context=Search(destination);
+        Assert(StartMenuShortcuts.CleanupInFolder(programs,false,unpin,context)==0&&Target(link)==moved,"Copy/delete move did not repair Programs link");
+        Assert(StartMenuShortcuts.CleanupInFolder(taskbar,false,unpin,context)==0&&Target(pin)==moved,"Copy/delete move did not repair pinned link");
+        Assert(unpins==0,"Copy/delete move unpins the script");
+        Assert(FingerprintOf(pin,moved)==fingerprint&&FingerprintOf(pin,exe)==null,"Fingerprint binding did not follow the new target");
+        Assert(AppId(pin,null)=="AutonomyPerformance.CopyDelete"&&IconIndex(pin)==-3456,"Copy/delete repair loses pin metadata");
+        Assert(String.Equals(Text(pin,"GetWorkingDirectory"),root,StringComparison.OrdinalIgnoreCase)&&String.Equals(Text(link,"GetWorkingDirectory"),Path.GetDirectoryName(moved),StringComparison.OrdinalIgnoreCase),"Repair loses custom working directory or fails to update default: "+Text(pin,"GetWorkingDirectory")+" / "+Text(link,"GetWorkingDirectory"));
+        for(int i=0;i<protectedPaths.Length;i++)Assert(Convert.ToBase64String(File.ReadAllBytes(protectedPaths[i]))==before[i],"Hash search changes a foreign/custom/argument link");
+        Assert(File.ReadAllBytes(moved).Length==original.Length&&File.ReadAllBytes(decoy)[5]==2,"Search changes candidate files");
+        // Multiple byte-identical copies must never be selected arbitrarily.
+        string duplicate=Path.Combine(destination,"Duplicate.exe");File.Copy(moved,duplicate);File.Delete(moved);
+        string another=Path.Combine(destination,"Another.exe");File.Copy(duplicate,another);
+        byte[] stable=File.ReadAllBytes(pin);
+        Assert(StartMenuShortcuts.CleanupInFolder(taskbar,false,unpin,Search(destination))==0&&File.Exists(pin)&&Target(pin)==moved,"Ambiguous copies change or delete the pin");
+        Assert(Convert.ToBase64String(File.ReadAllBytes(pin))==Convert.ToBase64String(stable),"Ambiguous search rewrites the pin");
+        File.Delete(another);
+        Assert(StartMenuShortcuts.CleanupInFolder(taskbar,false,unpin,Search(destination))==0&&Target(pin)==duplicate,"A later unambiguous copy is not repaired");
+        File.Delete(duplicate);
+        StartMenuShortcuts.SearchContext unavailable=Search(Path.Combine(root,"UnavailableRoot"));
+        Assert(StartMenuShortcuts.CleanupInFolder(taskbar,false,unpin,unavailable)==0&&File.Exists(pin),"Incomplete search deletes the pin");
+        Assert(StartMenuShortcuts.CleanupInFolder(taskbar,false,unpin,Search(destination))==1&&!File.Exists(pin),"Completed search cannot clean up a genuinely deleted target");
+        // Legacy native shortcuts acquire a fingerprint while the EXE is available.
+        File.WriteAllBytes(exe,original);string legacy=StartMenuShortcuts.CreateInFolder(exe,Path.Combine(root,"LegacyCopy"));
+        ClearFingerprint(legacy);
+        Assert(FingerprintOf(legacy,exe)==null,"Legacy fixture has unexpected tracking metadata");
+        StartMenuShortcuts.CleanupInFolder(Path.GetDirectoryName(legacy),false,unpin,Search(destination));
+        Assert(FingerprintOf(legacy,exe)==fingerprint,"Existing live shortcut is not upgraded for portable tracking");
+        string oldPin=StartMenuShortcuts.CreateInFolder(exe,Path.Combine(root,"LegacyPin"));ClearFingerprint(oldPin);
+        File.Copy(exe,moved);File.Delete(exe);context=Search(destination);context.Seed(Path.GetDirectoryName(legacy));context.Seed(Path.GetDirectoryName(oldPin));
+        Assert(StartMenuShortcuts.CleanupInFolder(Path.GetDirectoryName(oldPin),false,unpin,context)==0&&Target(oldPin)==moved,"A native pin without custom metadata cannot use its owned Programs link fingerprint");
+        Assert(FingerprintOf(oldPin,moved)==fingerprint,"Repaired legacy pin does not retain its own portable identity");
+        File.Delete(moved);StartMenuShortcuts.SearchContext cancelled=Search(destination);cancelled.CancelRequested=delegate{return true;};
+        Assert(StartMenuShortcuts.CleanupInFolder(Path.GetDirectoryName(oldPin),false,unpin,cancelled)==0&&File.Exists(oldPin),"Closing the constructor during search deletes a pending pin");
+        StartMenuShortcuts.SearchResult cancelledResult=cancelled.Find(moved,fingerprint);
+        Assert(!cancelledResult.Complete&&cancelledResult.Path==null,"Cancelled search reports a completed result");
+    }
     [STAThread] static int Main(string[] args)
     {
         try {
@@ -170,6 +234,7 @@ static class StartMenuShortcutsTests
             File.WriteAllBytes(first, new byte[] { 77, 90 }); File.WriteAllBytes(second, new byte[] { 77, 90 });
             VerifyPinRefresh(root, first, second);
             VerifyRelocation(root);
+            VerifyCopyDeleteRelocation(root);
             VerifyCleanupSelection(root,first,second);
             string link = StartMenuShortcuts.CreateInFolder(first, folder);
             Assert(File.Exists(link) && Path.GetFileName(link) == "Режим.lnk", "A named Start menu link was not created");
