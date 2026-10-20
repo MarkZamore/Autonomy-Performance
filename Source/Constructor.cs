@@ -432,11 +432,11 @@ public sealed class ConstructorWindow
         PreviewSwitch("DarkThemeSwitch",c.DarkTheme,"Включить тёмную тему Windows","Выключить тёмную тему Windows");
         PreviewSwitch("ScreenSaverSwitch",c.ScreenSaver,"Включить заставку","Выключить заставку");
         PreviewSwitch("UsbPowerSwitch",c.UsbPower,"Останавливать USB-устройства, когда экран выключен, для экономии заряда батареи","Не останавливать USB-устройства, когда экран выключен");
-        PreviewSwitch("BatteryPercentageSwitch",c.BatteryPercentage,"Показывать процент заряда батареи на панели задач","Скрыть процент заряда батареи на панели задач");
         PreviewSwitch("PresenceSleepSwitch",c.PresenceSleep,"Отключать экран, когда я ухожу","Не отключать экран, когда я ухожу");
         PreviewSwitch("PresenceWakeSwitch",c.PresenceWake,"Пробуждать мое устройство, когда я приближаюсь","Не пробуждать мое устройство, когда я приближаюсь");
         PreviewSwitch("PresenceDimSwitch",c.PresenceDim,"Автоматически уменьшать яркость, когда я отвожу взгляд","Не уменьшать яркость, когда я отвожу взгляд");
         PreviewSwitch("PresenceOnlookerSwitch",c.PresenceOnlooker,"Обнаружить, когда другие люди смотрят на мой экран","Выключить обнаружение других людей, смотрящих на экран");
+        PreviewSwitch("BatteryPercentageSwitch",c.BatteryPercentage,"Показывать процент заряда батареи на панели задач","Скрыть процент заряда батареи на панели задач");
         PreviewSwitch("ClockSecondsSwitch",c.ClockSeconds,"Показывать секунды в часах на панели задач","Скрыть секунды в часах на панели задач");
         if(c.FanProfile!=0)AddPreview("FanProfile",null,c.FanProfile==1?"Тихий режим вентилятора":c.FanProfile==2?"Производительный режим вентилятора":"Стандартный режим вентилятора");
         PreviewSwitch("BatteryCareSwitch",c.BatteryCare,"Включить режим бережной зарядки","Выключить режим бережной зарядки");

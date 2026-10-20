@@ -53,11 +53,11 @@
                             <CheckBox x:Name="DarkThemeSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Тёмная тема Windows"/></CheckBox>
                             <CheckBox x:Name="ScreenSaverSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Заставка"/></CheckBox>
                             <CheckBox x:Name="UsbPowerSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Останавливать USB-устройства, когда экран выключен, для экономии заряда батареи"/></CheckBox>
-                            <CheckBox x:Name="BatteryPercentageSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Процент заряда батареи на панели задач"/></CheckBox>
                             <CheckBox x:Name="PresenceSleepSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Отключать экран, когда я ухожу"/></CheckBox>
                             <CheckBox x:Name="PresenceWakeSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Пробуждать мое устройство, когда я приближаюсь"/></CheckBox>
                             <CheckBox x:Name="PresenceDimSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Автоматически уменьшать яркость, когда я отвожу взгляд"/></CheckBox>
                             <CheckBox x:Name="PresenceOnlookerSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Обнаружить, когда другие люди смотрят на мой экран"/></CheckBox>
+                            <CheckBox x:Name="BatteryPercentageSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Процент заряда батареи на панели задач"/></CheckBox>
                             <CheckBox x:Name="ClockSecondsSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Секунды в часах на панели задач"/></CheckBox>
                         </StackPanel>
                     </Expander>
