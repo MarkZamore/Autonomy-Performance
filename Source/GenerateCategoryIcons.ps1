@@ -1,4 +1,5 @@
 $ErrorActionPreference='Stop'
+Add-Type -AssemblyName PresentationCore,WindowsBase
 $assetRoot=Join-Path $PSScriptRoot 'Assets\Category'
 $output=New-Object Text.StringBuilder
 [void]$output.AppendLine(@'
@@ -11,17 +12,23 @@ $output=New-Object Text.StringBuilder
     <!-- ScreenXpert: manually traced from the official Microsoft Store PNG.
          Two flat-ended ribbons with rounded opposing ends; no tile background. -->
     <DrawingImage x:Key="Icon.ScreenXpert"><DrawingImage.Drawing><DrawingGroup>
-        <GeometryDrawing Brush="Transparent" Geometry="M0,0 H20 V20 H0 Z"/>
         <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}" Geometry="M9.873,1 H17.606 Q17.986,1 17.733,1.38 L7.21,11.9 C6.05,13.06 4.16,13.06 3,11.9 C1.83,10.73 1.83,8.85 3,7.68 L9.49,1.25 Q9.62,1 9.873,1 Z"/>
         <DrawingGroup><DrawingGroup.Transform><RotateTransform Angle="180" CenterX="10" CenterY="10"/></DrawingGroup.Transform>
             <GeometryDrawing Pen="{StaticResource CategoryIcon.Pen}" Geometry="M9.873,1 H17.606 Q17.986,1 17.733,1.38 L7.21,11.9 C6.05,13.06 4.16,13.06 3,11.9 C1.83,10.73 1.83,8.85 3,7.68 L9.49,1.25 Q9.62,1 9.873,1 Z"/>
         </DrawingGroup>
     </DrawingGroup></DrawingImage.Drawing></DrawingImage>
 '@)
+foreach($entry in @(@('Power',0xE7E8),@('Display',0xE7F4),@('Additional',0xE713))){
+    # Preserve the system glyph outline, without its font side bearings/line box.
+    $typeface=[Windows.Media.Typeface]::new('Segoe Fluent Icons, Segoe MDL2 Assets')
+    $text=[Windows.Media.FormattedText]::new([string][char]$entry[1],[Globalization.CultureInfo]::InvariantCulture,[Windows.FlowDirection]::LeftToRight,$typeface,20,[Windows.Media.Brushes]::White)
+    $geometry=[Windows.Media.PathGeometry]::CreateFromGeometry($text.BuildGeometry([Windows.Point]::new(0,0))).ToString([Globalization.CultureInfo]::InvariantCulture)
+    $geometry=[Security.SecurityElement]::Escape($geometry)
+    [void]$output.AppendLine(('    <DrawingImage x:Key="Icon.'+$entry[0]+'"><DrawingImage.Drawing><GeometryDrawing Brush="{StaticResource CategoryIcon.Stroke}" Geometry="'+$geometry+'"/></DrawingImage.Drawing></DrawingImage>'))
+}
 foreach($entry in @(@('WallpaperEngine','wallpaperengine.svg'),@('ArmouryCrate','armoury_crate.svg'))){
     [xml]$svg=[IO.File]::ReadAllText((Join-Path $assetRoot $entry[1]))
     [void]$output.AppendLine(('    <DrawingImage x:Key="Icon.'+$entry[0]+'"><DrawingImage.Drawing><DrawingGroup>'))
-    [void]$output.AppendLine('        <GeometryDrawing Brush="Transparent" Geometry="M0,0 H20 V20 H0 Z"/>')
     [void]$output.AppendLine('        <DrawingGroup Transform="0.4166666666666667,0,0,0.4166666666666667,0,0">')
     foreach($node in $svg.SelectNodes('//*[local-name()="path" or local-name()="circle"]')){
         if($node.LocalName -eq 'path'){

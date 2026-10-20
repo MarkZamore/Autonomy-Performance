@@ -13,7 +13,7 @@
             <ScrollViewer x:Name="SettingsScroll" Grid.Column="0" Style="{StaticResource SettingsScrollViewer}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" KeyboardNavigation.DirectionalNavigation="Continue" AutomationProperties.Name="Настройки скрипта">
                 <StackPanel>
                     <Expander x:Name="PowerSection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="Режим питания Windows">
-                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Style="{StaticResource CategoryIcon}" Text="&#xE7E8;"/><TextBlock Grid.Column="1" Text="Режим питания Windows" VerticalAlignment="Center"/></Grid></Expander.Header>
+                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.Power}"/><TextBlock Grid.Column="1" Text="Режим питания Windows" VerticalAlignment="Center"/></Grid></Expander.Header>
                         <StackPanel>
                             <CheckBox x:Name="EnergySaverSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Энергосбережение"/></CheckBox>
                             <CheckBox x:Name="Efficiency"><TextBlock Text="Максимальная эффективность энергосбережения"/></CheckBox>
@@ -22,7 +22,7 @@
                         </StackPanel>
                     </Expander>
                     <Expander x:Name="DisplaySection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="Дисплей">
-                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Style="{StaticResource CategoryIcon}" Text="&#xE7F4;"/><TextBlock Grid.Column="1" Text="Дисплей" VerticalAlignment="Center"/></Grid></Expander.Header>
+                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.Display}"/><TextBlock Grid.Column="1" Text="Дисплей" VerticalAlignment="Center"/></Grid></Expander.Header>
                         <StackPanel>
                             <ComboBox x:Name="DisplaySelector" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="Экран"/>
                             <ComboBox x:Name="ScaleSelector" Margin="{StaticResource Gap.Row}" IsEnabled="False" AutomationProperties.Name="Масштаб дисплея"/>
@@ -48,7 +48,7 @@
                         </StackPanel>
                     </Expander>
                     <Expander x:Name="AdditionalSection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="Дополнительно">
-                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><TextBlock Style="{StaticResource CategoryIcon}" Text="&#xE713;"/><TextBlock Grid.Column="1" Text="Дополнительно" VerticalAlignment="Center"/></Grid></Expander.Header>
+                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.Additional}"/><TextBlock Grid.Column="1" Text="Дополнительно" VerticalAlignment="Center"/></Grid></Expander.Header>
                         <StackPanel>
                             <CheckBox x:Name="DarkThemeSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Тёмная тема Windows"/></CheckBox>
                             <CheckBox x:Name="ScreenSaverSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Заставка"/></CheckBox>
@@ -62,18 +62,18 @@
                         </StackPanel>
                     </Expander>
                     <Expander x:Name="ArmourySection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="Armoury Crate">
-                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="ArmouryCrateIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.ArmouryCrate}"/><TextBlock Grid.Column="1" Text="Armoury Crate" VerticalAlignment="Center"/></Grid></Expander.Header>
+                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="ArmouryCrateIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.ArmouryCrate}"/><TextBlock Grid.Column="1" Text="Armoury Crate" VerticalAlignment="Center"/></Grid></Expander.Header>
                         <Grid/>
                     </Expander>
                     <Expander x:Name="PerformanceSection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="ScreenXpert">
-                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="ScreenXpertIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.ScreenXpert}"/><TextBlock Grid.Column="1" Text="ScreenXpert" VerticalAlignment="Center"/></Grid></Expander.Header>
+                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="ScreenXpertIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.ScreenXpert}"/><TextBlock Grid.Column="1" Text="ScreenXpert" VerticalAlignment="Center"/></Grid></Expander.Header>
                         <StackPanel>
                             <ComboBox x:Name="FanModeSelector" AutomationProperties.Name="Режим вентилятора"/>
                             <CheckBox x:Name="BatteryCareSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Режим бережной зарядки"/></CheckBox>
                         </StackPanel>
                     </Expander>
                     <Expander x:Name="WallpaperSection" AutomationProperties.Name="Wallpaper Engine">
-                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="WallpaperEngineIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.WallpaperEngine}"/><TextBlock Grid.Column="1" Text="Wallpaper Engine" VerticalAlignment="Center"/></Grid></Expander.Header>
+                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="WallpaperEngineIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.WallpaperEngine}"/><TextBlock Grid.Column="1" Text="Wallpaper Engine" VerticalAlignment="Center"/></Grid></Expander.Header>
                         <StackPanel>
                             <CheckBox x:Name="WallpaperApplicationSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Wallpaper Engine"/></CheckBox>
                             <CheckBox x:Name="WallpaperPlaybackSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Воспроизведение обоев"/></CheckBox>

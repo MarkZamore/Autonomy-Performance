@@ -79,7 +79,7 @@
         </ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style x:Key="CategoryIcon" TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}"><Setter Property="FontFamily" Value="{StaticResource Font.Icons}"/><Setter Property="FontSize" Value="{StaticResource Size.CategoryIcon}"/><Setter Property="LineHeight" Value="{StaticResource Size.CategoryIcon}"/><Setter Property="LineStackingStrategy" Value="BlockLineHeight"/><Setter Property="Height" Value="{StaticResource Size.CategoryIcon}"/><Setter Property="Width" Value="{StaticResource Size.CategoryIcon}"/><Setter Property="Margin" Value="{StaticResource Gap.CategoryIcon}"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="TextWrapping" Value="NoWrap"/></Style>
-    <Style x:Key="AppCategoryIcon" TargetType="Image"><Setter Property="Width" Value="20"/><Setter Property="Height" Value="20"/><Setter Property="Margin" Value="{StaticResource Gap.CategoryIcon}"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Stretch" Value="Uniform"/></Style>
+    <Style x:Key="AppCategoryIcon" TargetType="Image"><Setter Property="MaxWidth" Value="20"/><Setter Property="HorizontalAlignment" Value="Right"/><Setter Property="Height" Value="20"/><Setter Property="Margin" Value="{StaticResource Gap.CategoryIcon}"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Stretch" Value="Uniform"/></Style>
 
     <Style TargetType="Button">
         <Setter Property="MinHeight" Value="{StaticResource Size.Control}"/><Setter Property="Padding" Value="{StaticResource Pad.Control}"/>
