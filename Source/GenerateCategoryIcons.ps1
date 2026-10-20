@@ -23,10 +23,16 @@ foreach($entry in @(@('WallpaperEngine','wallpaperengine.svg'),@('ArmouryCrate',
     [void]$output.AppendLine(('    <DrawingImage x:Key="Icon.'+$entry[0]+'"><DrawingImage.Drawing><DrawingGroup>'))
     [void]$output.AppendLine('        <GeometryDrawing Brush="Transparent" Geometry="M0,0 H20 V20 H0 Z"/>')
     [void]$output.AppendLine('        <DrawingGroup Transform="0.4166666666666667,0,0,0.4166666666666667,0,0">')
-    foreach($node in $svg.DocumentElement.ChildNodes){
+    foreach($node in $svg.SelectNodes('//*[local-name()="path" or local-name()="circle"]')){
         if($node.LocalName -eq 'path'){
             $geometry=[Security.SecurityElement]::Escape($node.GetAttribute('d'))
-            [void]$output.AppendLine(('            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="'+$geometry+'"/>'))
+            if($entry[0] -eq 'ArmouryCrate'){
+                # The supplied SVG defines the contours as filled compound paths.
+                # SVG's default nonzero rule is F1 in WPF; adding a pen changes its shape.
+                [void]$output.AppendLine(('            <GeometryDrawing Brush="{StaticResource CategoryIcon.Stroke}" Geometry="F1 '+$geometry+'"/>'))
+            }else{
+                [void]$output.AppendLine(('            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}" Geometry="'+$geometry+'"/>'))
+            }
         }elseif($node.LocalName -eq 'circle'){
             [void]$output.AppendLine(('            <GeometryDrawing Pen="{StaticResource CategoryIcon.ArcticonsPen}"><GeometryDrawing.Geometry><EllipseGeometry Center="'+$node.GetAttribute('cx')+','+$node.GetAttribute('cy')+'" RadiusX="'+$node.GetAttribute('r')+'" RadiusY="'+$node.GetAttribute('r')+'"/></GeometryDrawing.Geometry></GeometryDrawing>'))
         }
