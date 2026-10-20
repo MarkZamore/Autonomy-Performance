@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 
-// Cleanup manages only marked links in our Programs folder and Taskbar copies. Icon refresh is
+// Startup repair/cleanup manages only marked links in our Programs folder and Taskbar copies. Icon refresh is
 // limited to existing links to the exact exported EXE, keeping their other properties.
 // No registration, scheduled task, background process or target execution is used.
 public static class StartMenuShortcuts
@@ -147,6 +147,9 @@ public static class StartMenuShortcuts
             try {
                 string target;
                 if (ReadCleanupTarget(path, out target) && DefinitelyMissing(target)) {
+                    // Let Windows' identity-based link tracker find a renamed/moved file
+                    // before considering this shortcut deleted. Never use fuzzy searches.
+                    if (TryRelocate(path,target)) continue;
                     // Unpin BEFORE deleting the shortcut, as required by Windows. Keep it
                     // for a later retry if the Shell cannot perform its part of cleanup.
                     if(!unpin(path))continue;
@@ -161,6 +164,40 @@ public static class StartMenuShortcuts
         }
         if(removed>0){SHChangeNotify(0x1000,0x1005,folder,IntPtr.Zero);if(removeEmptyFolder){try{Directory.Delete(folder,false);SHChangeNotify(0x10,0x1005,folder,IntPtr.Zero);}catch{ }}}
         return removed;
+    }
+
+    static bool TryRelocate(string path,string previous)
+    {
+        object instance=null;bool located=false;
+        try {
+            string owned;
+            if(!ReadCleanupTarget(path,out owned)||!String.Equals(owned,previous,StringComparison.OrdinalIgnoreCase))return false;
+            instance=Activator.CreateInstance(Type.GetTypeFromCLSID(ShellLinkClass));
+            ((IPersistFile)instance).Load(path,2);
+            IShellLink link=(IShellLink)instance;
+            StringBuilder icon=new StringBuilder(32768),work=new StringBuilder(32768);int index;
+            link.GetIconLocation(icon,icon.Capacity,out index);
+            link.GetWorkingDirectory(work,work.Capacity);
+            // NO_UI, NOSEARCH and a one-second timeout. Do not set UPDATE: only
+            // persist after validating the result; do not invoke MSI or the target.
+            link.Resolve(IntPtr.Zero,(1000u<<16)|0x11u);
+            string current;
+            if(!ReadTarget(link,true,out current)||String.Equals(current,previous,StringComparison.OrdinalIgnoreCase))return false;
+            // A located but temporarily inaccessible target, or a failed save, is
+            // not deletion. Retain the original shortcut for a later retry.
+            located=true;
+            if(current.StartsWith(@"\\",StringComparison.Ordinal)||!File.Exists(current)||IsReparsePoint(current))return true;
+            string stillOwned;
+            if(!ReadCleanupTarget(path,out stillOwned)||!String.Equals(stillOwned,previous,StringComparison.OrdinalIgnoreCase))return false;
+            link.SetPath(current);
+            link.SetIconLocation(current,index);
+            if(String.Equals(work.ToString(),Path.GetDirectoryName(previous),StringComparison.OrdinalIgnoreCase))link.SetWorkingDirectory(Path.GetDirectoryName(current));
+            ((IPersistFile)instance).Save(path,true);
+            SHChangeNotify(0x2000,0x1005,path,IntPtr.Zero);
+            SHChangeNotify(0x1000,0x1005,Path.GetDirectoryName(path),IntPtr.Zero);
+            return true;
+        }catch{return located;}
+        finally{if(instance!=null)Marshal.FinalReleaseComObject(instance);}
     }
 
     static bool ReadOwnedTarget(string path, out string target)

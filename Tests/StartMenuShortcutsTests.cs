@@ -123,6 +123,43 @@ static class StartMenuShortcutsTests
         File.WriteAllBytes(first,new byte[]{77,90});string restored=StartMenuShortcuts.CreateInFolder(first,shared);File.Delete(first);
         Assert(StartMenuShortcuts.CleanupInFolder(shared,false,delegate(string p){File.WriteAllBytes(first,new byte[]{77,90});return true;})==0&&File.Exists(restored),"Cleanup deletes a restored target's shortcut");
     }
+    static string Target(string path)
+    {
+        System.Text.StringBuilder text=new System.Text.StringBuilder(32768);
+        ReadValues(path,"GetPath",new object[]{text,text.Capacity,IntPtr.Zero,(uint)4});return text.ToString();
+    }
+    static void VerifyRelocation(string root)
+    {
+        string source=Path.Combine(root,"Moving"),destination=Path.Combine(root,"Moved");Directory.CreateDirectory(source);Directory.CreateDirectory(destination);
+        string exe=Path.Combine(source,"Move.exe"),renamed=Path.Combine(source,"Renamed.exe"),moved=Path.Combine(destination,"Final.exe");
+        File.WriteAllBytes(exe,new byte[]{77,90,1,2,3});
+        string programs=Path.Combine(root,"MovePrograms"),taskbar=Path.Combine(root,"MoveTaskbar");
+        string link=StartMenuShortcuts.CreateInFolder(exe,programs),pin=StartMenuShortcuts.CreateInFolder(exe,taskbar);
+        AppId(pin,"AutonomyPerformance.MoveRegression");EditValues(pin,"SetHotkey",new object[]{(short)321});
+        EditValues(pin,"SetIconLocation",new object[]{exe,-1234});
+        string foreign=Path.Combine(programs,"Foreign.lnk");File.Copy(link,foreign);Edit(foreign,"SetDescription","User shortcut");
+        string foreignBytes=Convert.ToBase64String(File.ReadAllBytes(foreign));int unpins=0;
+        Func<string,bool> unpin=delegate(string p){unpins++;return true;};
+        File.Move(exe,renamed);
+        Assert(StartMenuShortcuts.CleanupInFolder(programs,false,unpin)==0&&File.Exists(link)&&Target(link)==renamed,"Rename did not preserve and repair Programs shortcut");
+        Assert(StartMenuShortcuts.CleanupInFolder(taskbar,false,unpin)==0&&File.Exists(pin)&&Target(pin)==renamed,"Rename did not preserve and repair pinned shortcut");
+        Assert(unpins==0,"Moved script was unpinned");
+        File.Move(renamed,moved);
+        Assert(StartMenuShortcuts.CleanupInFolder(programs,false,unpin)==0&&Target(link)==moved,"Folder move did not repair Programs shortcut");
+        Assert(StartMenuShortcuts.CleanupInFolder(taskbar,false,unpin)==0&&Target(pin)==moved,"Folder move did not repair pinned shortcut");
+        Assert(Text(pin,"GetWorkingDirectory")==destination,"Working directory did not follow the moved script");
+        System.Text.StringBuilder icon=new System.Text.StringBuilder(32768);ReadValues(pin,"GetIconLocation",new object[]{icon,icon.Capacity,0});
+        Assert(icon.ToString()==moved&&IconIndex(pin)==-1234,"Icon path/index did not follow the moved script");
+        Assert(AppId(pin,null)=="AutonomyPerformance.MoveRegression"&&(short)ReadValues(pin,"GetHotkey",new object[]{(short)0})[0]==321,"Relocation loses pin metadata");
+        Assert(Convert.ToBase64String(File.ReadAllBytes(foreign))==foreignBytes,"Relocation modifies a foreign shortcut");
+        byte[] stable=File.ReadAllBytes(pin);StartMenuShortcuts.CleanupInFolder(taskbar,false,unpin);
+        Assert(Convert.ToBase64String(stable)==Convert.ToBase64String(File.ReadAllBytes(pin)),"Repeated startup rewrites a healthy pin");
+        File.Delete(moved);
+        // A similarly named executable is not proof that the original moved.
+        string decoy=Path.Combine(destination,"Final copy.exe");File.WriteAllBytes(decoy,new byte[]{77,90,1,2,3});
+        Assert(StartMenuShortcuts.CleanupInFolder(programs,false,unpin)==1&&StartMenuShortcuts.CleanupInFolder(taskbar,false,unpin)==1,"Actually deleted relocated script is not cleaned up");
+        Assert(File.Exists(decoy),"Cleanup changes an unrelated executable");
+    }
     [STAThread] static int Main(string[] args)
     {
         try {
@@ -132,6 +169,7 @@ static class StartMenuShortcutsTests
             string first = Path.Combine(root, "First", "Режим.exe"), second = Path.Combine(root, "Second", "Режим.exe");
             File.WriteAllBytes(first, new byte[] { 77, 90 }); File.WriteAllBytes(second, new byte[] { 77, 90 });
             VerifyPinRefresh(root, first, second);
+            VerifyRelocation(root);
             VerifyCleanupSelection(root,first,second);
             string link = StartMenuShortcuts.CreateInFolder(first, folder);
             Assert(File.Exists(link) && Path.GetFileName(link) == "Режим.lnk", "A named Start menu link was not created");
