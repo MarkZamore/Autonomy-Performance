@@ -45,18 +45,25 @@ internal static class ShellIconRefresh
     const uint Flush=0x1000,UnicodePathAndFlush=0x1005;
     [DllImport("shell32.dll",CharSet=CharSet.Unicode)]
     static extern void SHChangeNotify(uint change,uint flags,string first,IntPtr second);
+    internal sealed class IconChange { internal bool Required; internal int PreviousIndex=-1,NewIndex=-1; }
+    internal static IconChange Compare(string path,byte[] replacement)
+    {
+        IconChange change=new IconChange{NewIndex=PortableResources.PinnedIconIndex(replacement)};
+        if(!File.Exists(path))return change;
+        try{byte[] previous=File.ReadAllBytes(path);change.Required=!PortableResources.HaveSameIcon(previous,replacement);change.PreviousIndex=PortableResources.PinnedIconIndex(previous);}
+        catch{change.Required=true;}
+        return change;
+    }
     internal static bool NeedsRefresh(string path,byte[] replacement)
     {
-        if(!File.Exists(path))return false;
-        try{return !PortableResources.HaveSameIcon(File.ReadAllBytes(path),replacement);}
-        catch{return true;}
+        return Compare(path,replacement).Required;
     }
-    internal static void Changed(string path,bool iconChanged)
+    internal static void Changed(string path,bool iconChanged,int previousIndex=-1,int newIndex=-1)
     {
         try {
             // UPDATEITEM alone leaves Explorer's same-path icon cache stale. Only an icon
             // change triggers Shell cache invalidation; configuration-only saves do not.
-            if(iconChanged)SHChangeNotify(IconsChanged,Flush,null,IntPtr.Zero);
+            if(iconChanged){StartMenuShortcuts.RefreshIcons(path,previousIndex,newIndex);SHChangeNotify(IconsChanged,Flush,null,IntPtr.Zero);}
             // FLUSH waits for notification delivery, unlike the former FLUSHNOWAIT.
             SHChangeNotify(ItemChanged,UnicodePathAndFlush,path,IntPtr.Zero);
             SHChangeNotify(DirectoryChanged,UnicodePathAndFlush,Path.GetDirectoryName(path),IntPtr.Zero);
@@ -102,12 +109,12 @@ public static class ExecutableExporter
         byte[] data=Encoding.UTF8.GetBytes(new JavaScriptSerializer().Serialize(config));
         byte[] executable=PortableResources.CreateModeExecutable(EmbeddedAssets.Read("RunnerTemplate"),data,icon);
         if(!Equal(data,PortableResources.ReadConfiguration(executable)))throw new InvalidDataException("Не удалось проверить настройки создаваемого файла.");
-        bool iconChanged=ShellIconRefresh.NeedsRefresh(destination,executable);
+        ShellIconRefresh.IconChange iconChange=ShellIconRefresh.Compare(destination,executable);
         string temp=Path.Combine(Path.GetDirectoryName(destination),".ap-"+Guid.NewGuid().ToString("N")+".tmp");
         try{
             File.WriteAllBytes(temp,executable);
             Commit(temp,destination);
-            ShellIconRefresh.Changed(destination,iconChanged);
+            ShellIconRefresh.Changed(destination,iconChange.Required,iconChange.PreviousIndex,iconChange.NewIndex);
         }finally{if(File.Exists(temp))File.Delete(temp);}
     }
 }

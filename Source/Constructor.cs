@@ -560,7 +560,7 @@ public sealed class ConstructorWindow
     {
         ExecutableExporter.Save(path,Configuration,IconChoice.GetBytes());
         if(addToStartMenu.IsChecked==true){
-            try{StartMenuShortcuts.Create(path);}
+            try{StartMenuShortcuts.CreateWithIcon(path,PortableResources.PinnedIconIndex(File.ReadAllBytes(path)));}
             catch{status.Text="Скрипт сохранён, но не удалось создать ярлык в меню «Пуск». Проверьте доступ к папке меню «Пуск» и повторите сохранение.";status.Foreground=(Brush)Window.FindResource("Brush.TextMuted");UpdateSaveState();return;}
         }
         IconChoice.Saved();savedScriptState=ScriptState();RefreshIcons();status.Text="";

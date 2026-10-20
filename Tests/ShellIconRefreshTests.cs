@@ -37,9 +37,9 @@ public static class ShellIconRefreshTests
         Assert(SHGetFileInfo(path,0,out info,(uint)Marshal.SizeOf(typeof(FileInfo)),0x4100u|(small?1u:0u))!=IntPtr.Zero,"Shell icon lookup failed");
         try{return Fingerprint(info.Icon);}finally{if(info.Icon!=IntPtr.Zero)DestroyIcon(info.Icon);}
     }
-    static string[] EmbeddedIcons(string path) {
+    static string[] EmbeddedIcons(string path,int index=0) {
         IntPtr large,small;
-        Assert(ExtractIconEx(path,0,out large,out small,1)>0,"Fresh EXE icon extraction failed");
+        Assert(ExtractIconEx(path,index,out large,out small,1)>0,"Fresh EXE icon extraction failed");
         try{return new string[]{Fingerprint(large),Fingerprint(small)};}
         finally{if(large!=IntPtr.Zero)DestroyIcon(large);if(small!=IntPtr.Zero)DestroyIcon(small);}
     }
@@ -62,12 +62,18 @@ public static class ShellIconRefreshTests
         string path=Path.Combine(folder,"Режим "+Guid.NewGuid().ToString("N")+".exe");
         try {
             string[] previous=null;
+            System.Collections.Generic.Dictionary<int,int> aliases=new System.Collections.Generic.Dictionary<int,int>();
             foreach(int index in new int[]{1,3,2,4,0,1}) {
                 byte[] replacement=PortableResources.CreateModeExecutable(EmbeddedAssets.Read("RunnerTemplate"),System.Text.Encoding.UTF8.GetBytes("{\"DarkTheme\":1}"),EmbeddedAssets.Read("Icon"+index));
                 MethodInfo needsRefresh=typeof(ExecutableExporter).Assembly.GetType("ShellIconRefresh").GetMethod("NeedsRefresh",BindingFlags.Static|BindingFlags.NonPublic);
                 Assert((bool)needsRefresh.Invoke(null,new object[]{path,replacement})==(previous!=null),"Icon change detection failed before replacement");
                 ExecutableExporter.Save(path,new ModeConfiguration{DarkTheme=index%2+1},EmbeddedAssets.Read("Icon"+index));
                 string[] expected=EmbeddedIcons(path);
+                int alias=(int)typeof(PortableResources).GetMethod("PinnedIconIndex",BindingFlags.Static|BindingFlags.NonPublic).Invoke(null,new object[]{File.ReadAllBytes(path)});
+                string[] referenced=EmbeddedIcons(path,alias);
+                Assert(alias < -1 && referenced[0]==expected[0] && referenced[1]==expected[1],"Pinned resource alias differs from the default icon");
+                if(aliases.ContainsKey(index))Assert(aliases[index]==alias,"Returning to the same artwork changes its content key");
+                else{Assert(!aliases.ContainsValue(alias),"Built-in icons share a cache key");aliases.Add(index,alias);}
                 if(previous!=null)Assert(previous[0]!=expected[0]&&previous[1]!=expected[1],"Fixture icons must differ");
                 // Shell image lists are per-process. A console does not handle Shell change
                 // messages like Explorer; use a fresh Shell consumer rather than its old list.

@@ -4,7 +4,8 @@ using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 
-// Only this application's marked links in its own Programs subfolder are managed.
+// Cleanup manages only marked links in our Programs subfolder. Icon refresh is
+// limited to existing links to the exact exported EXE, keeping their other properties.
 // No registration, scheduled task, background process or target execution is used.
 public static class StartMenuShortcuts
 {
@@ -42,8 +43,12 @@ public static class StartMenuShortcuts
     }
 
     public static string Create(string executable) { return CreateInFolder(executable, Folder()); }
+    internal static string CreateWithIcon(string executable,int iconIndex) { return CreateInFolderWithIcon(executable, Folder(),iconIndex); }
 
     internal static string CreateInFolder(string executable, string folder)
+    { return CreateInFolderWithIcon(executable,folder,0); }
+
+    static string CreateInFolderWithIcon(string executable, string folder,int iconIndex)
     {
         executable = Path.GetFullPath(executable);
         if (!String.Equals(Path.GetExtension(executable), ".exe", StringComparison.OrdinalIgnoreCase)) throw new ArgumentException();
@@ -70,7 +75,7 @@ public static class StartMenuShortcuts
             link.SetWorkingDirectory(Path.GetDirectoryName(executable));
             link.SetArguments("");
             link.SetDescription(Marker);
-            link.SetIconLocation(executable, 0);
+            link.SetIconLocation(executable, iconIndex);
             link.SetShowCmd(1);
             ((IPersistFile)instance).Save(destination, true);
         } finally { Marshal.FinalReleaseComObject(instance); }
@@ -80,6 +85,51 @@ public static class StartMenuShortcuts
     public static void Cleanup()
     {
         try { CleanupInFolder(Folder()); } catch { }
+    }
+
+    internal static void RefreshIcons(string executable,int previousIndex,int newIndex)
+    {
+        try { RefreshIconsInFolder(executable, Folder(),previousIndex,newIndex); } catch { }
+        try {
+            string roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            if (!String.IsNullOrEmpty(roaming)) RefreshIconsInFolder(executable, Path.Combine(roaming, @"Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar"),previousIndex,newIndex);
+        } catch { }
+    }
+
+    [DllImport("shell32.dll", CharSet=CharSet.Unicode)]
+    static extern void SHChangeNotify(uint change, uint flags, string first, IntPtr second);
+
+    internal static int RefreshIconsInFolder(string executable, string folder,int previousIndex=-1,int newIndex=-1)
+    {
+        int refreshed = 0;
+        executable = Path.GetFullPath(executable);
+        if (!Directory.Exists(folder) || IsReparsePoint(folder)) return refreshed;
+        foreach (string path in Directory.GetFiles(folder, "*.lnk", SearchOption.TopDirectoryOnly)) {
+            object instance = null;
+            try {
+                if (IsReparsePoint(path)) continue;
+                instance = Activator.CreateInstance(Type.GetTypeFromCLSID(ShellLinkClass));
+                ((IPersistFile)instance).Load(path, 2);
+                IShellLink link = (IShellLink)instance;
+                string target;
+                if (!ReadTarget(link, false, out target) || !String.Equals(target, executable, StringComparison.OrdinalIgnoreCase)) continue;
+                StringBuilder icon = new StringBuilder(32768); int index;
+                link.GetIconLocation(icon, icon.Capacity, out index);
+                // Preserve a user-selected external icon or another resource index.
+                if ((icon.Length != 0 && !String.Equals(icon.ToString(), executable, StringComparison.OrdinalIgnoreCase)) || (index != 0 && index != -1 && index != previousIndex)) continue;
+                // Re-save the LOADED link: arguments, AppUserModelID, description,
+                // working directory and other Windows pin metadata are preserved.
+                // The alias has the same artwork as the default icon, with an ID derived
+                // from its content. Reusing an icon therefore reuses the correct cached art.
+                link.SetIconLocation(executable, newIndex);
+                ((IPersistFile)instance).Save(path, true);
+                SHChangeNotify(0x2000, 0x1005, path, IntPtr.Zero);
+                refreshed++;
+            } catch { }
+            finally { if (instance != null) Marshal.FinalReleaseComObject(instance); }
+        }
+        if (refreshed > 0) SHChangeNotify(0x1000, 0x1005, folder, IntPtr.Zero);
+        return refreshed;
     }
 
     internal static int CleanupInFolder(string folder)
@@ -104,20 +154,25 @@ public static class StartMenuShortcuts
             if (IsReparsePoint(path)) return false;
             instance = Activator.CreateInstance(Type.GetTypeFromCLSID(ShellLinkClass));
             ((IPersistFile)instance).Load(path, 0);
-            IShellLink link = (IShellLink)instance;
-            StringBuilder description = new StringBuilder(256), arguments = new StringBuilder(32768), value = new StringBuilder(32768);
-            link.GetDescription(description, description.Capacity);
-            if (description.ToString() != Marker) return false;
-            link.GetArguments(arguments, arguments.Capacity);
-            if (arguments.Length != 0) return false;
-            // GetPath alone never resolves or launches the shortcut's target.
-            link.GetPath(value, value.Capacity, IntPtr.Zero, 4);
-            string raw = value.ToString();
-            if (String.IsNullOrEmpty(raw) || !Path.IsPathRooted(raw) || raw.IndexOf('%') >= 0 || !String.Equals(Path.GetExtension(raw), ".exe", StringComparison.OrdinalIgnoreCase)) return false;
-            target = Path.GetFullPath(raw);
-            return true;
+            return ReadTarget((IShellLink)instance, true, out target);
         } catch { return false; }
         finally { if (instance != null) Marshal.FinalReleaseComObject(instance); }
+    }
+
+    static bool ReadTarget(IShellLink link, bool requireMarker, out string target)
+    {
+        target = null;
+        StringBuilder description = new StringBuilder(256), arguments = new StringBuilder(32768), value = new StringBuilder(32768);
+        link.GetDescription(description, description.Capacity);
+        if (requireMarker && description.ToString() != Marker) return false;
+        link.GetArguments(arguments, arguments.Capacity);
+        if (arguments.Length != 0) return false;
+        // GetPath alone never resolves or launches the shortcut's target.
+        link.GetPath(value, value.Capacity, IntPtr.Zero, 4);
+        string raw = value.ToString();
+        if (String.IsNullOrEmpty(raw) || !Path.IsPathRooted(raw) || raw.IndexOf('%') >= 0 || !String.Equals(Path.GetExtension(raw), ".exe", StringComparison.OrdinalIgnoreCase)) return false;
+        target = Path.GetFullPath(raw);
+        return true;
     }
 
     static bool DefinitelyMissing(string target)

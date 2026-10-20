@@ -168,6 +168,11 @@ public static class PortableResources
             writer.Write((ushort)0);writer.Write((ushort)1);writer.Write((ushort)count);
             for(int i=0;i<count;i++){int at=6+i*16,size=I32(icon,at+8),offset=I32(icon,at+12);Require(size>=4&&offset>=6+16*count);Set(image.Root,3,new Key(i+1),0,Slice(icon,offset,size));writer.Write(icon,at,8);writer.Write((uint)size);writer.Write((ushort)(i+1));}
             Set(image.Root,14,new Key(1),0,group.ToArray());
+            // A content-specific alias lets pinned shortcuts distinguish different icons
+            // at the same EXE path. Both groups share the existing RT_ICON images.
+            byte[] digest;using(System.Security.Cryptography.SHA256 hash=System.Security.Cryptography.SHA256.Create())digest=hash.ComputeHash(icon);
+            int alias=2+(int)(BitConverter.ToUInt32(digest,0)%65534);
+            Set(image.Root,14,new Key(alias),0,group.ToArray());
         }
         return Rebuild(image);
     }
@@ -186,6 +191,12 @@ public static class PortableResources
             for(int i=0;i<oldBytes.Length;i++)if(oldBytes[i]!=newBytes[i])return false;
         }
         return true;
+    }
+    internal static int PinnedIconIndex(byte[] executable)
+    {
+        Node groups=Child(Parse(executable).Root,new Key(14),false);
+        if(groups!=null)foreach(Key key in groups.Children.Keys)if(key.Name==null&&key.Id>1&&key.Id<=65535)return -key.Id;
+        return -1;
     }
     public static byte[] RemoveVersion(byte[] executable,out bool changed)
     {
