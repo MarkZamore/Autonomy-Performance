@@ -114,7 +114,7 @@
                 </WrapPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="IconButton" Width="{StaticResource Size.IconButton}" Margin="{StaticResource Gap.Icon}" Padding="4" ToolTip="Выбрать иконку" AutomationProperties.Name="Выбрать иконку"><Image x:Name="CurrentIcon" Width="24" Height="24"/></Button>
-                    <Button x:Name="SaveButton" Width="{StaticResource Size.SaveWidth}" IsEnabled="False" Content="Сохранить"/>
+                    <Button x:Name="SaveButton" IsEnabled="False" Content="Сохранить"/>
                 </StackPanel>
                 <Popup x:Name="IconPopup" PlacementTarget="{Binding ElementName=IconButton}" Placement="Top" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" VerticalOffset="-8">
                     <Border Background="{DynamicResource Brush.Popup}" BorderBrush="{DynamicResource Brush.Border}" BorderThickness="{StaticResource Border.Control}" CornerRadius="{StaticResource Radius.Panel}" Padding="{StaticResource Pad.Popup}">
