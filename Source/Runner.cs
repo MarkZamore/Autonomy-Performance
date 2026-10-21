@@ -34,44 +34,7 @@ internal static class Runner
             }else if(!status){
                 report.Mode="configured";
                 ModeConfiguration c=PeConfiguration.Read(Assembly.GetExecutingAssembly().Location);
-                if(c.BatteryPercentage!=0)report.Steps.Add(TaskbarControl.SetPreference(true,c.BatteryPercentage==1));
-                if(c.ClockSeconds!=0)report.Steps.Add(TaskbarControl.SetPreference(false,c.ClockSeconds==1));
-                if(c.WallpaperApplication==1)report.Steps.Add(WallpaperControl.SetApplication(true));
-                if(c.BatteryCare!=0)report.Steps.Add(BatteryCareControl.Set(c.BatteryCare==1));
-                Guid? savedAC=null,savedDC=null;
-                bool preservePower=true,fanMayHaveChanged=false;
-                bool additionalSchemeRefresh=c.SleepTimeout!=0||c.ScreenTimeout!=0||c.AdaptiveBrightness!=0;
-                if(c.PowerMode==0&&((c.FanProfile!=0&&!skipFan)||additionalSchemeRefresh)){
-                    try{savedAC=WindowsControl.ReadPowerMode(true);}catch{preservePower=false;}
-                    try{savedDC=WindowsControl.ReadPowerMode(false);}catch{preservePower=false;}
-                }
-                if(c.FanProfile!=0) {
-                    if(preservePower){
-                        StepResult fanResult=FanControl.SetProfile(c.FanProfile==3?0:c.FanProfile,skipFan);
-                        report.Steps.Add(fanResult);
-                        fanMayHaveChanged=fanResult.Status!="skipped";
-                    }
-                    else report.Steps.Add(new StepResult("FanProfile","skipped","Cannot preserve unreadable unselected AC/DC power modes safely."));
-                }
-                report.Steps.AddRange(AdditionalControl.Apply(c,preservePower||c.PowerMode!=0));
-                if(c.PowerMode!=0){
-                    report.Steps.Add(WindowsControl.SetPowerMode(true,ModeConfiguration.PowerGuid(c.PowerMode)));
-                    report.Steps.Add(WindowsControl.SetPowerMode(false,ModeConfiguration.PowerGuid(c.PowerMode)));
-                }else if(fanMayHaveChanged||additionalSchemeRefresh){
-                    if(savedAC.HasValue)report.Steps.Add(WindowsControl.SetPowerMode(true,savedAC.Value));
-                    if(savedDC.HasValue)report.Steps.Add(WindowsControl.SetPowerMode(false,savedDC.Value));
-                }
-                // Clear a selected saver override before HDR; brightness follows
-                // display reconfiguration so a driver transition cannot reset it.
-                if(c.EnergySaver==2)report.Steps.AddRange(WindowsControl.SetEnergySaver(false));
-                foreach(DisplayModeConfiguration display in c.GetDisplayActions()) ApplyDisplay(report,display);
-                if(c.Brightness>=0)report.Steps.AddRange(WindowsControl.SetBrightness(c.Brightness));
-                if(c.NightLight!=0)report.Steps.Add(NightLightControl.Apply(c.NightLight==1,c.NightLightStrength));
-                if(c.EnergySaver==1)report.Steps.AddRange(WindowsControl.SetEnergySaver(true));
-                // Set a selected mute state before resuming playback.
-                if(c.WallpaperAudio!=0)report.Steps.Add(WallpaperControl.SetAudio(c.WallpaperAudio==1));
-                if(c.WallpaperPlayback!=0)report.Steps.Add(WallpaperControl.SetPlayback(c.WallpaperPlayback==1));
-                if(c.WallpaperApplication==2)report.Steps.Add(WallpaperControl.SetApplication(false));
+                ApplyConfiguration(report,c,skipFan);
             }else report.Mode="status";
             if(reportPath!=null)report.State=new ModeSnapshot{Windows=WindowsControl.ReadState(),Fan=FanControl.ReadState()};
             foreach(StepResult step in report.Steps)if(step.Status=="error")return 1;
@@ -83,6 +46,48 @@ internal static class Runner
             try{if(acquired&&gate!=null)gate.ReleaseMutex();}catch{}
             try{if(gate!=null)gate.Dispose();}catch{}
         }
+    }
+    static void ApplyConfiguration(RunReport report,ModeConfiguration c,bool skipFan)
+    {
+        // Complete selected Wallpaper Engine calls before any other setting,
+        // especially display reconfiguration. Apply mute before resuming playback.
+        if(c.WallpaperApplication==1)report.Steps.Add(WallpaperControl.SetApplication(true));
+        if(c.WallpaperAudio!=0)report.Steps.Add(WallpaperControl.SetAudio(c.WallpaperAudio==1));
+        if(c.WallpaperPlayback!=0)report.Steps.Add(WallpaperControl.SetPlayback(c.WallpaperPlayback==1));
+        if(c.WallpaperApplication==2)report.Steps.Add(WallpaperControl.SetApplication(false));
+        if(c.BatteryPercentage!=0)report.Steps.Add(TaskbarControl.SetPreference(true,c.BatteryPercentage==1));
+        if(c.ClockSeconds!=0)report.Steps.Add(TaskbarControl.SetPreference(false,c.ClockSeconds==1));
+        if(c.BatteryCare!=0)report.Steps.Add(BatteryCareControl.Set(c.BatteryCare==1));
+        Guid? savedAC=null,savedDC=null;
+        bool preservePower=true,fanMayHaveChanged=false;
+        bool additionalSchemeRefresh=c.SleepTimeout!=0||c.ScreenTimeout!=0||c.AdaptiveBrightness!=0;
+        if(c.PowerMode==0&&((c.FanProfile!=0&&!skipFan)||additionalSchemeRefresh)){
+            try{savedAC=WindowsControl.ReadPowerMode(true);}catch{preservePower=false;}
+            try{savedDC=WindowsControl.ReadPowerMode(false);}catch{preservePower=false;}
+        }
+        if(c.FanProfile!=0) {
+            if(preservePower){
+                StepResult fanResult=FanControl.SetProfile(c.FanProfile==3?0:c.FanProfile,skipFan);
+                report.Steps.Add(fanResult);
+                fanMayHaveChanged=fanResult.Status!="skipped";
+            }
+            else report.Steps.Add(new StepResult("FanProfile","skipped","Cannot preserve unreadable unselected AC/DC power modes safely."));
+        }
+        report.Steps.AddRange(AdditionalControl.Apply(c,preservePower||c.PowerMode!=0));
+        if(c.PowerMode!=0){
+            report.Steps.Add(WindowsControl.SetPowerMode(true,ModeConfiguration.PowerGuid(c.PowerMode)));
+            report.Steps.Add(WindowsControl.SetPowerMode(false,ModeConfiguration.PowerGuid(c.PowerMode)));
+        }else if(fanMayHaveChanged||additionalSchemeRefresh){
+            if(savedAC.HasValue)report.Steps.Add(WindowsControl.SetPowerMode(true,savedAC.Value));
+            if(savedDC.HasValue)report.Steps.Add(WindowsControl.SetPowerMode(false,savedDC.Value));
+        }
+        // Clear a selected saver override before HDR; brightness follows
+        // display reconfiguration so a driver transition cannot reset it.
+        if(c.EnergySaver==2)report.Steps.AddRange(WindowsControl.SetEnergySaver(false));
+        foreach(DisplayModeConfiguration display in c.GetDisplayActions()) ApplyDisplay(report,display);
+        if(c.Brightness>=0)report.Steps.AddRange(WindowsControl.SetBrightness(c.Brightness));
+        if(c.NightLight!=0)report.Steps.Add(NightLightControl.Apply(c.NightLight==1,c.NightLightStrength));
+        if(c.EnergySaver==1)report.Steps.AddRange(WindowsControl.SetEnergySaver(true));
     }
     static void ApplyDisplay(RunReport report,DisplayModeConfiguration display)
     {
