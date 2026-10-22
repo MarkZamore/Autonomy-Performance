@@ -72,8 +72,8 @@
                             <CheckBox x:Name="BatteryCareSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Режим бережной зарядки"/></CheckBox>
                         </StackPanel>
                     </Expander>
-                    <Expander x:Name="WallpaperSection" AutomationProperties.Name="Wallpaper Engine">
-                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="WallpaperEngineIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.WallpaperEngine}"/><TextBlock Grid.Column="1" Text="Wallpaper Engine" VerticalAlignment="Center"/></Grid></Expander.Header>
+                    <Expander x:Name="WallpaperSection" AutomationProperties.Name="Wallpaper Engine (нестабильно)">
+                        <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="WallpaperEngineIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.WallpaperEngine}"/><TextBlock Grid.Column="1" Text="Wallpaper Engine (нестабильно)" VerticalAlignment="Center"/></Grid></Expander.Header>
                         <StackPanel>
                             <CheckBox x:Name="WallpaperApplicationSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Wallpaper Engine"/></CheckBox>
                             <CheckBox x:Name="WallpaperPlaybackSwitch" Style="{StaticResource TriStateSwitch}"><TextBlock Text="Воспроизведение обоев"/></CheckBox>
