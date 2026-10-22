@@ -199,7 +199,7 @@ public sealed class ConstructorWindow
         if(!available)category.IsExpanded=false;
         foreach(string action in actions){CheckBox control=Action(action);control.IsEnabled=available;if(!available)control.IsChecked=control.IsThreeState?(bool?)null:false;}
     }
-    void RefreshHardware(){bool previous=updating;updating=true;try{SetAvailable("PresenceWakeSwitch",SensorCapabilities.HasPresence(2));SetAvailable("PresenceOnlookerSwitch",SensorCapabilities.HasPresence(3));SetAvailable("PresenceSleepSwitch",SensorCapabilities.HasPresence(false));SetAvailable("PresenceDimSwitch",SensorCapabilities.HasPresence(true));SetAvailable("AdaptiveBrightnessSwitch",SensorCapabilities.HasAmbientLight()&&SensorCapabilities.HasBrightness());SetAvailable("NightLightSwitch",NightLightControl.Available());SetAvailable("BatteryPercentageSwitch",SensorCapabilities.HasBattery());}finally{updating=previous;}SelectionChanged(null,null);}
+    void RefreshHardware(){bool previous=updating;updating=true;try{SetAvailable("PresenceWakeSwitch",SensorCapabilities.HasPresence(2));SetAvailable("PresenceOnlookerSwitch",SensorCapabilities.HasPresence(3));SetAvailable("PresenceSleepSwitch",SensorCapabilities.HasPresence(false));SetAvailable("PresenceDimSwitch",SensorCapabilities.HasPresence(true));SetAvailable("AdaptiveBrightnessSwitch",SensorCapabilities.HasAmbientLight()&&SensorCapabilities.HasBrightness());SetAvailable("NightLightSwitch",NightLightControl.Available());SetAvailable("BatteryPercentageSwitch",TaskbarControl.Available(true));SetAvailable("ClockSecondsSwitch",TaskbarControl.Available(false));}finally{updating=previous;}SelectionChanged(null,null);}
     CheckBox[] WireExclusiveChoices(string[] names){CheckBox[] result=new CheckBox[names.Length];for(int i=0;i<names.Length;i++){result[i]=(CheckBox)Window.FindName(names[i]);result[i].Checked+=ExclusiveSelectionChanged;result[i].Unchecked+=ExclusiveSelectionChanged;}return result;}
     static int SelectedMode(CheckBox[] choices){for(int i=0;i<choices.Length;i++)if(choices[i].IsEnabled&&choices[i].IsChecked==true)return i+1;return 0;}
     int SelectedFanProfile(){FanModeChoice choice=fanSelector.SelectedItem as FanModeChoice;return fanSelector.IsEnabled&&choice!=null?choice.Profile:0;}
@@ -306,7 +306,7 @@ public sealed class ConstructorWindow
     {
         if(updating)return;
         brightnessSlider.IsEnabled=brightnessToggle.IsEnabled&&brightnessToggle.IsChecked==true;
-        nightLightSlider.IsEnabled=Action("NightLightSwitch").IsChecked==true;
+        nightLightSlider.IsEnabled=Action("NightLightSwitch").IsEnabled&&Action("NightLightSwitch").IsChecked==true;
         status.Text="";UpdatePreview();
     }
     void ExclusiveSelectionChanged(object sender,RoutedEventArgs e)

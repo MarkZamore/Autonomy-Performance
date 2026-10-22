@@ -47,7 +47,7 @@ public static class ExportTests {
   int at=6+(BitConverter.ToUInt16(original,4)-1)*16,size=BitConverter.ToInt32(original,at+8),source=BitConverter.ToInt32(original,at+12),offset=6+16*count;byte[] icon=new byte[offset+count*size];
   icon[2]=1;icon[4]=(byte)count;for(int i=0;i<count;i++){Buffer.BlockCopy(original,at,icon,6+i*16,8);Put(icon,6+i*16+8,size);Put(icon,6+i*16+12,offset);Buffer.BlockCopy(original,source,icon,offset,size);offset+=size;}return icon;
  }
- static void VerifyPe(string path,byte[] icon){
+ static void VerifyPe(string path,byte[] icon,bool expectedVersion=true,bool managedImage=true){
   byte[] pe=File.ReadAllBytes(path);int header=BitConverter.ToInt32(pe,60);Assert(BitConverter.ToUInt16(pe,header+24+68)==2,"GUI subsystem");Assert(BitConverter.ToUInt16(pe,header+4)==0x8664,"x64 machine");
   byte[] template=EmbeddedAssets.Read("RunnerTemplate");Assert(SectionBytes(pe,".text").SequenceEqual(SectionBytes(template,".text")),"Executable code and CLR data remain byte-identical");
   int optional=header+24;Assert(BitConverter.ToUInt32(pe,optional+112+14*8)==BitConverter.ToUInt32(template,BitConverter.ToInt32(template,60)+24+112+14*8),"CLR header RVA unchanged");
@@ -55,8 +55,12 @@ public static class ExportTests {
   try {
    bool hasVersion=false;ResourceNameCallback callback=delegate(IntPtr module,IntPtr type,IntPtr name,IntPtr parameter){hasVersion=true;return true;};
    EnumResourceNames(h,new IntPtr(16),callback,IntPtr.Zero);GC.KeepAlive(callback);
-   Assert(!hasVersion,"No VERSIONINFO resources in any language or name");
-   FileVersionInfo info=FileVersionInfo.GetVersionInfo(path);Assert(String.IsNullOrEmpty(info.FileVersion)&&String.IsNullOrEmpty(info.ProductVersion),"No Explorer file/product version");
+   Assert(hasVersion==expectedVersion,expectedVersion?"Export preserves VERSIONINFO resources":"Explicit legacy cleanup removes VERSIONINFO resources");
+   string release=FileVersionInfo.GetVersionInfo(builder).FileVersion;int number;
+   Assert(Int32.TryParse(release,out number)&&number>0&&release==number.ToString(System.Globalization.CultureInfo.InvariantCulture),"Builder release is a single number");
+   FileVersionInfo info=FileVersionInfo.GetVersionInfo(path);
+   Assert(expectedVersion?info.FileVersion==release&&info.ProductVersion==release:String.IsNullOrEmpty(info.FileVersion)&&String.IsNullOrEmpty(info.ProductVersion),expectedVersion?"Export file/product versions match builder release":"Explicit legacy cleanup preserves its version-removal behavior");
+   if(managedImage)Assert(AssemblyName.GetAssemblyName(path).Version==new Version(1,0,number,0),"Managed assembly version remains technical 1.0.N.0");
    string manifest=Encoding.UTF8.GetString(Resource(h,24,1));Assert(manifest.Contains("asInvoker")&&!manifest.Contains("requireAdministrator"),"asInvoker manifest");
    byte[] group=Resource(h,14,1);int count=BitConverter.ToUInt16(icon,4);Assert(BitConverter.ToUInt16(group,4)==count,"Icon frame count");
    for(int i=0;i<count;i++){
@@ -96,7 +100,9 @@ public static class ExportTests {
    byte[] customIcon=CustomFrameIcon(defaultIcon,frames);IconFile.Validate(customIcon);string customOutput=Path.Combine(output,"Custom-"+frames+".exe");ExecutableExporter.Save(customOutput,valid,customIcon);VerifyPe(customOutput,customIcon);
   }
   byte[] relocationTemplate=WithRelocationSection(EmbeddedAssets.Read("RunnerTemplate")),largeIcon=CustomFrameIcon(defaultIcon,24);
-  byte[] relocated=PortableResources.CreateModeExecutable(relocationTemplate,configuration,largeIcon);string relocatedPath=Path.Combine(output,"Relocated.exe");File.WriteAllBytes(relocatedPath,relocated);VerifyPe(relocatedPath,largeIcon);
+  // This synthetic relocation fixture is a data-only PE, not a loadable managed image.
+  // Its CLR bytes are checked against the runner by VerifyPe; regular exports also validate AssemblyName.
+  byte[] relocated=PortableResources.CreateModeExecutable(relocationTemplate,configuration,largeIcon);string relocatedPath=Path.Combine(output,"Relocated.exe");File.WriteAllBytes(relocatedPath,relocated);VerifyPe(relocatedPath,largeIcon,true,false);
   int oldRelocation=SectionHeader(relocationTemplate,".reloc"),newRelocation=SectionHeader(relocated,".reloc"),relocatedOptional=BitConverter.ToInt32(relocated,60)+24;
   Assert(BitConverter.ToInt32(relocated,newRelocation+12)>BitConverter.ToInt32(relocationTemplate,oldRelocation+12),"Expanded resources move relocation RVA");
   Assert(BitConverter.ToInt32(relocated,relocatedOptional+112+5*8)==BitConverter.ToInt32(relocated,newRelocation+12),"Relocation directory follows relocated section");
@@ -106,7 +112,9 @@ public static class ExportTests {
   byte[] signed=EmbeddedAssets.Read("RunnerTemplate");int signedOptional=BitConverter.ToInt32(signed,60)+24;Put(signed,signedOptional+112+4*8,512);Put(signed,signedOptional+112+4*8+4,8);Rejected(delegate{PortableResources.CreateModeExecutable(signed,configuration,defaultIcon);},"Signed or non-controlled PE template rejected");
   Assert(!typeof(ExecutableExporter).GetMethods(BindingFlags.NonPublic|BindingFlags.Static).Any(m=>m.Name.Contains("UpdateResource")),"Exporter has no Windows resource-update calls");
   ExecutableExporter.Save(exe,valid,EmbeddedAssets.Read("Icon4"));
-  Assert(!ExecutableExporter.RemoveVersionMetadata(exe),"Removing absent version is a safe no-op");
+  string versionless=Path.Combine(output,"LegacyVersionless.exe");File.Copy(exe,versionless,true);
+  Assert(ExecutableExporter.RemoveVersionMetadata(versionless),"Explicit legacy metadata-removal helper remains compatible");
+  Assert(!ExecutableExporter.RemoveVersionMetadata(versionless),"Repeated explicit legacy cleanup is a safe no-op");
   byte[] template=EmbeddedAssets.Read("RunnerTemplate");string legacy=Path.Combine(output,"Versioned.exe");File.WriteAllBytes(legacy,template);
   IntPtr templateModule=LoadLibraryEx(legacy,IntPtr.Zero,0x22);Assert(templateModule!=IntPtr.Zero,"Template PE load");byte[] version;
   try{version=Resource(templateModule,16,1);}finally{FreeLibrary(templateModule);}
@@ -119,7 +127,7 @@ public static class ExportTests {
   }finally{if(update!=IntPtr.Zero)EndUpdateResource(update,true);}
   Assert(!String.IsNullOrEmpty(FileVersionInfo.GetVersionInfo(legacy).FileVersion),"Fixture has Explorer version");
   ModeConfiguration legacyBefore=PeConfiguration.Read(legacy);Assert(ExecutableExporter.RemoveVersionMetadata(legacy),"Existing script metadata removed");
-  ModeConfiguration legacyAfter=PeConfiguration.Read(legacy);Assert(legacyBefore.EnergySaver==legacyAfter.EnergySaver&&legacyAfter.EnergySaver==1&&legacyAfter.HasActions,"Existing script configuration preserved");VerifyPe(legacy,EmbeddedAssets.Read("Icon4"));
+  ModeConfiguration legacyAfter=PeConfiguration.Read(legacy);Assert(legacyBefore.EnergySaver==legacyAfter.EnergySaver&&legacyAfter.EnergySaver==1&&legacyAfter.HasActions,"Existing script configuration preserved");VerifyPe(legacy,EmbeddedAssets.Read("Icon4"),false);
   byte[] cleaned=File.ReadAllBytes(legacy);Assert(!ExecutableExporter.RemoveVersionMetadata(legacy)&&cleaned.SequenceEqual(File.ReadAllBytes(legacy)),"Repeated removal preserves every byte");
   Rejected(delegate{ExecutableExporter.RemoveVersionMetadata(builder);},"Constructor metadata modification rejected");
   IconSelection selection=new IconSelection();Assert(selection.GetBytes().SequenceEqual(defaultIcon),"Default program icon");
@@ -142,6 +150,6 @@ public static class ExportTests {
   string folder=Path.Combine(output,"Directory.exe");Directory.CreateDirectory(folder);Rejected(delegate{ExecutableExporter.Save(folder,valid,defaultIcon);},"Directory destination rejected");Directory.Delete(folder);
   Assert(Directory.GetFiles(output,".ap-*.tmp").Length==0,"No temporary exports after success/failure");
   Assert(ModeConfiguration.PowerGuid(2)==Guid.Empty,"Balanced GUID");
-  Console.WriteLine("Validated "+cases+" configuration combinations, five full multi-frame ICO resources, version removal for all names/languages, overwrite and failure cleanup.");
+  Console.WriteLine("Validated "+cases+" configuration combinations, five full multi-frame ICO resources, release version preservation, explicit legacy cleanup, overwrite and failure cleanup.");
  }
 }

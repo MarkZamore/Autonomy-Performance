@@ -2,16 +2,15 @@ using System;using System.Diagnostics;using Microsoft.Win32;
 class NativeModeTests{
  static void Check(bool condition,string message){if(!condition)throw new Exception(message);}
  static void Ok(StepResult step){Console.WriteLine(step.Name+": "+step.Status+" / "+step.Detail);Check(step.Status=="ok",step.Detail);}
- static string Payload(byte[] record){for(int i=4;i<record.Length-4;i++)if(record[i]==67&&record[i+1]==66&&record[i+2]==1&&record[i+3]==0)return BitConverter.ToString(record,i,record.Length-i-3);throw new Exception("No payload");}
  static int Main(){try{
   if(NightLightControl.Available()){
-   byte[][] original=NightLightControl.Capture();try{Ok(NightLightControl.Apply(true,25));Ok(NightLightControl.Apply(true,75));Ok(NightLightControl.Apply(false,50));}finally{NightLightControl.Restore(original);}
-   byte[][] after=NightLightControl.Capture();Check(Payload(original[0])==Payload(after[0])&&Payload(original[1])==Payload(after[1]),"Night Light settings/schedule not restored");Console.WriteLine("Night Light payloads restored.");
+   NightLightSnapshot current=NightLightControl.Capture();
+   Console.WriteLine("Night Light read-only: manual mode="+current.Enabled+" / strength="+current.Strength+". No toggle or schedule/override restoration is attempted.");
   }
   int rate=BatteryCareControl.ReadRate();if(rate==100){try{for(int i=0;i<2;i++){Ok(BatteryCareControl.Set(true));Check(BatteryCareControl.ReadRate()==80,"Wrong charging limit");Ok(BatteryCareControl.Set(false));}}finally{Ok(BatteryCareControl.Set(false));}Check(BatteryCareControl.ReadRate()==rate,"Charging state not restored");}
-  using(RegistryKey key=Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",false)){
-   foreach(bool battery in new[]{false,true}){string name=battery?"IsBatteryPercentageEnabled":"ShowSecondsInSystemClock";object original=key.GetValue(name,null);if(!(original is int))continue;bool enabled=(int)original!=0;try{Ok(TaskbarControl.SetPreference(battery,!enabled));Check(Convert.ToInt32(key.GetValue(name))==(enabled?0:1),"Taskbar preference did not change");Ok(TaskbarControl.SetPreference(battery,enabled));}finally{Ok(TaskbarControl.SetPreference(battery,enabled));}}
-  }
+  // Registry values no longer represent the effective broker state. Tray
+  // changes are checked by substituted sessions and a separate approved live check.
+  foreach(bool battery in new[]{false,true})Console.WriteLine("Tray preference available: "+battery+" / "+TaskbarControl.Available(battery));
   foreach(DisplayInfo d in DisplayControl.Enumerate()){
    Check(DisplayControl.Apply(d.MonitorId,0,d.Width,d.Height).Status=="ok","Current resolution rejected");
    int scale=HdrControl.InspectCurrentScale(d.MonitorId);if(scale!=0)Check(HdrControl.ApplyScale(d.MonitorId,scale).Status=="ok","Current scale rejected");

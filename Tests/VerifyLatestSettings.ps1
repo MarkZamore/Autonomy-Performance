@@ -37,8 +37,9 @@ try{
   }
  }
  $night=$win.FindName('NightLightSwitch');$slider=$win.FindName('NightLightSlider')
- foreach($value in @($false,$null,$true)){$night.IsChecked=$value;Assert ($slider.IsEnabled -eq ($value -eq $true)) 'Night slider enablement mismatch'}
- $slider.Value=73;Assert ($ui.Configuration.NightLightStrength -eq 73 -and $ui.PreviewText.Contains('73%')) 'Night strength missing in preview'
+ foreach($value in @($false,$null,$true)){$night.IsChecked=$value;Assert ($slider.IsEnabled -eq ($night.IsEnabled -and $value -eq $true)) 'Night slider enablement mismatch'}
+ $slider.Value=73;Assert ($ui.Configuration.NightLightStrength -eq 73) 'Night strength value missing'
+ if($night.IsEnabled){Assert ($ui.PreviewText.Contains('73%')) 'Night strength missing in preview'}else{Assert ($ui.Configuration.NightLight -eq 0) 'Unavailable Night Light must not enter configuration'}
  $night.IsChecked=$null
  $display=$win.FindName('DisplaySelector');$resolution=$win.FindName('ResolutionSelector');$rate=$win.FindName('RefreshSelector');$scale=$win.FindName('ScaleSelector');$cabc=$win.FindName('ContentBrightnessSelector')
  Assert ($rate.Items[0].ToString() -eq 'Не менять частоту обновления') 'Wrong neutral refresh caption'

@@ -83,12 +83,15 @@ public static class MinimalExportTests
         ResourceNameCallback callback=delegate(IntPtr h,IntPtr type,IntPtr name,IntPtr parameter){hasVersion=true;return true;};
         try{EnumResourceNames(module,new IntPtr(16),callback,IntPtr.Zero);GC.KeepAlive(callback);}finally{FreeLibrary(module);}
         FileVersionInfo version=FileVersionInfo.GetVersionInfo(target);
-        Assert(!hasVersion&&String.IsNullOrEmpty(version.FileVersion)&&String.IsNullOrEmpty(version.ProductVersion), "Exported executable retained version metadata");
+        string release=FileVersionInfo.GetVersionInfo(builder).FileVersion;int number;
+        Assert(Int32.TryParse(release,out number)&&number>0&&release==number.ToString(System.Globalization.CultureInfo.InvariantCulture),"Builder release must be one number");
+        Assert(hasVersion&&version.FileVersion==release&&version.ProductVersion==release,"Exported file/product versions must match builder release");
+        Assert(AssemblyName.GetAssemblyName(target).Version==new Version(1,0,number,0),"Exported assembly version must remain technical 1.0.N.0");
         string json=new JavaScriptSerializer().Serialize(new {
             Passed=true, Builder=builder, BuilderBytes=new FileInfo(builder).Length,
             Exported=target, CreatedFiles=created.Length, RenamedFiles=1, DeletedFiles=0,
             NoRcxFiles=true, NoTemporaryFilesRemain=true, ConfigurationRoundtrip=true,
-            VersionMetadataAbsent=true, ExportedExecutableWasRun=false, Events=observed
+            FileVersion=version.FileVersion,ProductVersion=version.ProductVersion,VersionMetadataPreserved=true, ExportedExecutableWasRun=false, Events=observed
         });
         File.WriteAllText(Path.Combine(output,"result.json"),json,new System.Text.UTF8Encoding(false));
         Console.WriteLine(json);

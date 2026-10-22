@@ -1,8 +1,40 @@
-﻿using System;using System.Runtime.InteropServices;using Microsoft.Win32;
-public static class TaskbarControl{
- const string Path=@"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced";
- [DllImport("user32.dll",CharSet=CharSet.Unicode)]static extern IntPtr FindWindow(string cls,string title);
- [DllImport("user32.dll",CharSet=CharSet.Unicode)]static extern IntPtr SendMessageTimeout(IntPtr hwnd,uint message,UIntPtr w,IntPtr data,uint flags,uint timeout,out UIntPtr result);
- static bool Notify(IntPtr window){IntPtr text=Marshal.StringToHGlobalUni("TraySettings");try{UIntPtr result;return SendMessageTimeout(window,0x1A,UIntPtr.Zero,text,2,500,out result)!=IntPtr.Zero;}finally{Marshal.FreeHGlobal(text);}}
- public static StepResult SetPreference(bool battery,bool enabled){string name=battery?"IsBatteryPercentageEnabled":"ShowSecondsInSystemClock";try{IntPtr window=FindWindow("Shell_TrayWnd",null);if(window==IntPtr.Zero)return new StepResult(name,"skipped","Панель задач недоступна.");using(RegistryKey key=Registry.CurrentUser.OpenSubKey(Path,true)){if(key==null)return new StepResult(name,"skipped","Настройки панели задач недоступны.");int target=enabled?1:0;if(Object.Equals(key.GetValue(name),target))return new StepResult(name,"ok","Параметр панели задач уже выбран.");key.SetValue(name,target,RegistryValueKind.DWord);bool notified=Notify(window);return new StepResult(name,notified?"ok":"skipped",notified?"Параметр панели задач изменён.":"Настройка сохранена; панель задач не ответила вовремя.");}}catch{return new StepResult(name,"skipped","Настройка панели задач недоступна.");}}
+using System;
+using WindowsPreferences;
+
+public static class TaskbarControl
+{
+    public static bool Available(bool battery)
+    {
+        return Available(battery,NativeTrayPreferences.Open,!battery||SensorCapabilities.HasBattery());
+    }
+    internal static bool Available(bool battery,Func<TrayPreferenceKind,ITrayPreferenceSession> open,bool hasBattery)
+    {
+        if(battery&&!hasBattery)return false;
+        try{using(ITrayPreferenceSession session=open(Kind(battery)))return Writable(session.Read());}catch{return false;}
+    }
+    public static StepResult SetPreference(bool battery,bool enabled)
+    {
+        return SetPreference(battery,enabled,NativeTrayPreferences.Open,!battery||SensorCapabilities.HasBattery());
+    }
+    internal static StepResult SetPreference(bool battery,bool enabled,Func<TrayPreferenceKind,ITrayPreferenceSession> open,bool hasBattery)
+    {
+        string name=battery?"IsBatteryPercentageEnabled":"ShowSecondsInSystemClock";
+        if(battery&&!hasBattery)return new StepResult(name,"skipped","Батарея не обнаружена.");
+        try{
+            using(ITrayPreferenceSession session=open(Kind(battery))){
+                TrayPreferenceSnapshot before=session.Read();
+                if(!Writable(before))return new StepResult(name,"skipped","Изменение параметра панели задач недоступно.");
+                if(before.Value==enabled)return new StepResult(name,"ok","Параметр панели задач уже выбран.");
+                session.Set(enabled);
+                TrayPreferenceSnapshot after=session.Read();
+                if(!Writable(after)||after.Value!=enabled)return new StepResult(name,"skipped","Изменение параметра панели задач не подтверждено.");
+                return new StepResult(name,"ok","Параметр панели задач изменён и проверен.");
+            }
+        }catch{return new StepResult(name,"skipped","Настройка панели задач недоступна.");}
+    }
+    static TrayPreferenceKind Kind(bool battery){return battery?TrayPreferenceKind.BatteryPercentage:TrayPreferenceKind.ClockSeconds;}
+    static bool Writable(TrayPreferenceSnapshot state)
+    {
+        return state!=null&&state.IsApplicable&&state.IsEnabled&&!state.IsSetByGroupPolicy&&!state.IsUpdating;
+    }
 }

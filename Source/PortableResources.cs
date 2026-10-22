@@ -160,7 +160,9 @@ public static class PortableResources
     public static byte[] CreateModeExecutable(byte[] template,byte[] configuration,byte[] icon)
     {
         Require(configuration!=null&&configuration.Length>0&&configuration.Length<=65536);Image image=Parse(template);
-        image.Root.Children.Remove(new Key(16));image.Root.Children.Remove(new Key(3));image.Root.Children.Remove(new Key(14));
+        // Retain the runner's release metadata; only icon resources are replaced.
+        Node version=Child(image.Root,new Key(16),false);Require(version!=null&&version.Children!=null&&version.Children.Count>0);
+        image.Root.Children.Remove(new Key(3));image.Root.Children.Remove(new Key(14));
         Node custom=Child(image.Root,new Key(10),false);if(custom!=null){Require(custom.Children!=null);custom.Children.Remove(new Key(PeConfiguration.ResourceName));}
         Set(image.Root,10,new Key(PeConfiguration.ResourceName),0,configuration);
         Require(icon!=null&&icon.Length>=22&&U16(icon,0)==0&&U16(icon,2)==1);int count=U16(icon,4);Require(count>0&&count<=256);Range(icon,6,count*16);
