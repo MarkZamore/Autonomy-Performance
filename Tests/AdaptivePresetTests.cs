@@ -76,7 +76,7 @@ static class AdaptivePresetTests
             Assert(two.Hdr==0&&three.Hdr==0,"Unsupported HDR must be omitted");
             Assert(one.DynamicRefresh==(performance?1:2)&&ten.DynamicRefresh==(performance?1:2),"Supported DRR action missing");
             Assert(two.DynamicRefresh==0&&three.DynamicRefresh==0,"Unsupported DRR must be omitted");
-            Assert(one.DisplayScale==(performance?150:0)&&ten.DisplayScale==(performance?200:0)&&two.DisplayScale==(performance?150:0)&&three.DisplayScale==0,"Each display must use its own offered recommended scale");
+            Assert(one.DisplayScale==150&&ten.DisplayScale==(performance?200:100)&&two.DisplayScale==150&&three.DisplayScale==0,"Each display must use its own offered recommendation adapted to the preset resolution");
             Unrequested(configuration,performance?"Performance":"Autonomy");
             Assert(serializer.Serialize(capabilities)==before,"Building a preset mutated capability data");
             Assert(Same(configuration,PresetBuilder.Build(performance,capabilities)),"Repeated builds must be deterministic");
@@ -136,7 +136,7 @@ static class AdaptivePresetTests
         foreach(int recommendation in new[]{100,125,150,200}) {
             capabilities.RecommendedScale=recommendation;
             Assert(PresetBuilder.BuildDisplay(true,capabilities).DisplayScale==recommendation,"Performance must use the offered recommendation "+recommendation+", not a fixed 200%");
-            Assert(PresetBuilder.BuildDisplay(false,capabilities).DisplayScale==0,"Autonomy must leave scaling unchanged");
+            Assert(PresetBuilder.BuildDisplay(false,capabilities).DisplayScale==Math.Min(recommendation,150),"Autonomy must adapt the offered recommendation to retained FHD resolution");
         }
         foreach(int recommendation in new[]{0,-100,175}) {
             capabilities.RecommendedScale=recommendation;
@@ -144,6 +144,33 @@ static class AdaptivePresetTests
         }
         capabilities.RecommendedScale=150;capabilities.Scales=null;
         Assert(PresetBuilder.BuildDisplay(true,capabilities).DisplayScale==0,"Missing scale capabilities must not create a scale action");
+        Assert(PresetBuilder.BuildDisplay(false,capabilities).DisplayScale==0,"Autonomy must also omit an unavailable scale action");
+
+        PresetDisplayCapabilities laptop=Display(1,2880,1800,2880,1800,false,false,new[]{100,125,150,175,200},Resolution(2880,1800,60,144),Resolution(1920,1200,60));
+        laptop.RecommendedScale=200;
+        Assert(PresetBuilder.BuildDisplay(false,laptop).DisplayScale==150,"WUXGA autonomy must select 150% instead of native 200%");
+        Assert(PresetBuilder.BuildDisplay(true,laptop).DisplayScale==200,"Native performance must retain Windows' 200% recommendation");
+        laptop.Display.Width=1920;laptop.Display.Height=1200;
+        Assert(PresetBuilder.BuildDisplay(false,laptop).DisplayScale==150,"Autonomy must not depend on whether the user already applied its resolution");
+        laptop.Display.RecommendedWidth=3840;laptop.Display.RecommendedHeight=2160;
+        laptop.Display.Resolutions.Add(Resolution(1920,1080,60));
+        Assert(PresetBuilder.BuildDisplay(false,laptop).DisplayScale==150,"16:9 FHD must also select an offered 150% step");
+        laptop.Scales=new List<int>{200,100,125};
+        Assert(PresetBuilder.BuildDisplay(false,laptop).DisplayScale==125,"Missing 150% must use the largest offered lower step, regardless of list order");
+        laptop.Scales=new List<int>{175,200};
+        Assert(PresetBuilder.BuildDisplay(false,laptop).DisplayScale==0,"No fitting scale step must not invent one");
+        laptop.Scales=new List<int>{100,125,150,200};laptop.RecommendedScale=0;
+        Assert(PresetBuilder.BuildDisplay(false,laptop).DisplayScale==0,"An unknown Windows recommendation must not become a fixed 150%");
+        laptop.RecommendedScale=175;
+        Assert(PresetBuilder.BuildDisplay(false,laptop).DisplayScale==0,"An unoffered Windows recommendation must not become a guessed scale");
+        laptop.RecommendedScale=125;
+        Assert(PresetBuilder.BuildDisplay(false,laptop).DisplayScale==125,"A lower monitor recommendation must not be raised to 150%");
+        laptop.Display.Resolutions.Clear();laptop.Display.Width=2880;laptop.Display.Height=1800;laptop.RecommendedScale=200;
+        Assert(PresetBuilder.BuildDisplay(false,laptop).DisplayScale==200,"Unavailable FHD must retain a scale suited to the unchanged high-resolution mode");
+        laptop.Display.Width=768;laptop.Display.Height=1366;
+        Assert(PresetBuilder.BuildDisplay(false,laptop).DisplayScale==100,"Portrait low-resolution fallback must use the short edge");
+        laptop.Display.Width=0;
+        Assert(PresetBuilder.BuildDisplay(false,laptop).DisplayScale==0,"Unknown target dimensions must not select an autonomy scale");
     }
     static int Run()
     {

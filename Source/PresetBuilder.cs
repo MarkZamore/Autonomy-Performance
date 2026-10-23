@@ -65,10 +65,27 @@ public static class PresetBuilder
             if (performance) { if (rate >= 2 && rate > action.RefreshRate) action.RefreshRate = rate; }
             else if (rate == 60) action.RefreshRate = rate;
         }
-        if (performance && capabilities.RecommendedScale > 0 && capabilities.Scales != null && capabilities.Scales.Contains(capabilities.RecommendedScale)) action.DisplayScale = capabilities.RecommendedScale;
+        action.DisplayScale = SelectScale(performance,capabilities,resolution);
         if (capabilities.HdrSupported) action.Hdr = performance ? 1 : 2;
         if (capabilities.DynamicRefreshSupported) action.DynamicRefresh = performance ? 1 : 2;
         return action;
+    }
+
+    static int SelectScale(bool performance,PresetDisplayCapabilities capabilities,DisplayResolution resolution)
+    {
+        int recommended=capabilities.RecommendedScale;
+        if(recommended<=0||capabilities.Scales==null||!capabilities.Scales.Contains(recommended))return 0;
+        if(performance)return recommended;
+        // Keep the Windows recommendation as the ceiling, but adapt it to the
+        // lower preset resolution: retain at least 720 effective lines. Choose
+        // only an offered step, rather than carrying a high-resolution DPI into FHD.
+        uint width=resolution==null?capabilities.Display.Width:resolution.Width;
+        uint height=resolution==null?capabilities.Display.Height:resolution.Height;
+        if(width==0||height==0)return 0;
+        int selected=0;
+        foreach(int scale in capabilities.Scales)
+            if(scale>=100&&scale<=recommended&&scale>selected&&(ulong)Math.Min(width,height)*100>=720UL*(uint)scale)selected=scale;
+        return selected;
     }
 
     static DisplayResolution FindResolution(DisplayInfo display, uint width, uint height)

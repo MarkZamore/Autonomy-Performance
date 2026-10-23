@@ -69,8 +69,15 @@ function Assert-Preset([bool]$performance,[string]$label) {
         $numbers+=[int][regex]::Match($display.DeviceName,'DISPLAY(\d+)$').Groups[1].Value
         Assert ($target.Brightness -eq -1 -and $target.ContentBrightness -eq 0) ('Preset retained brightness/CABC: '+$label)
         $recommendedScale=[HdrControl]::InspectRecommendedScale($display.MonitorId);$offeredScales=[HdrControl]::InspectScales($display.MonitorId)
-        $expectedScale=if($performance -and $recommendedScale -gt 0 -and $offeredScales.Contains($recommendedScale)){$recommendedScale}else{0}
-        Assert ($target.DisplayScale -eq $expectedScale) ('Preset scale differs from the offered native recommendation: '+$label)
+        $expectedScale=0
+        if($recommendedScale -gt 0 -and $offeredScales.Contains($recommendedScale)){
+            if($performance){$expectedScale=$recommendedScale}else{
+                $width=if($target.DisplayWidth -gt 0){$target.DisplayWidth}else{$display.Width}
+                $height=if($target.DisplayHeight -gt 0){$target.DisplayHeight}else{$display.Height}
+                foreach($scale in $offeredScales){if($scale -ge 100 -and $scale -le $recommendedScale -and $scale -gt $expectedScale -and [Math]::Min($width,$height)*100 -ge 720*$scale){$expectedScale=$scale}}
+            }
+        }
+        Assert ($target.DisplayScale -eq $expectedScale) ('Preset scale differs from the recommendation adapted to its resolution: '+$label)
         if($target.DisplayWidth -ne 0){$mode=@($display.Resolutions|Where-Object {$_.Width -eq $target.DisplayWidth -and $_.Height -eq $target.DisplayHeight});Assert ($mode.Count -eq 1) ('Unavailable resolution: '+$label);if($target.RefreshRate -gt 0){Assert ($mode[0].Rates.Contains($target.RefreshRate)) ('Unavailable resolution/Hz pair: '+$label)}}
     }
     Assert ((($numbers|Sort-Object)-join ',') -eq ($numbers-join ',')) ('Display order is not numeric: '+$label)
