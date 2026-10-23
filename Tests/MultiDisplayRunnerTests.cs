@@ -88,6 +88,45 @@ static class MultiDisplayRunnerTests
         Assert(skippedFan.Steps[0].Name=="WallpaperApplication","A selected exit must be the first report step.");
         FakeActions.Reset();
     }
+    static void ArmouryActionOrder()
+    {
+        FakeActions.Reset();
+        RunReport combined=RunConfiguration(new ModeConfiguration{FanProfile=2,ArmouryMode=4,DarkTheme=1},false);
+        AssertSequence(FakeActions.Calls,new[]{"readPower:ac","readPower:dc","fan:2:False","armoury:4","additional:True","setPower:ac","setPower:dc"},"Armoury must follow ScreenXpert and finish before scheme preferences and restored Windows modes.");
+        Assert(combined.Steps.Count==5&&combined.Steps[1].Name=="ArmouryMode"&&combined.Steps[1].Status=="ok","Armoury must retain its own result between fan and Windows preferences.");
+        Assert(FakeActions.PowerWrites.Count==2&&FakeActions.PowerWrites[0]==FakeActions.SavedACPower&&FakeActions.PowerWrites[1]==FakeActions.SavedDCPower,"Both distinct original AC/DC overlays must be restored after the ASUS actions.");
+
+        FakeActions.Reset();
+        RunConfiguration(new ModeConfiguration{FanProfile=1,ArmouryMode=2,PowerMode=1,ScreenTimeout=1},false);
+        AssertSequence(FakeActions.Calls,new[]{"fan:1:False","armoury:2","additional:True","setPower:ac","setPower:dc"},"An explicit Windows mode must run after both ASUS modes and scheme preferences without reading unselected overlays.");
+        Assert(FakeActions.PowerWrites.Count==2&&FakeActions.PowerWrites[0]==ModeConfiguration.PowerGuid(1)&&FakeActions.PowerWrites[1]==ModeConfiguration.PowerGuid(1),"An explicit Windows preference must replace saved overlays for both power sources.");
+
+        foreach(int mode in new[]{4,5}){
+            FakeActions.Reset();FakeActions.ArmouryStatus="skipped";
+            RunReport skipped=RunConfiguration(new ModeConfiguration{ArmouryMode=mode,DarkTheme=1,Brightness=42},false);
+            AssertSequence(FakeActions.Calls,new[]{"readPower:ac","readPower:dc","armoury:"+mode,"additional:True","brightnessGlobal:42"},"Absent Armoury or unconfigured Manual must not restore unchanged power modes or cancel later preferences.");
+            Assert(skipped.Steps.Count==3&&skipped.Steps[0].Name=="ArmouryMode"&&skipped.Steps[0].Status=="skipped"&&skipped.Steps[2].Status=="ok","A skipped Armoury action must remain a skipped individual report step.");
+        }
+
+        FakeActions.Reset();FakeActions.ArmouryStatus="skipped";
+        RunConfiguration(new ModeConfiguration{FanProfile=3,ArmouryMode=5},false);
+        AssertSequence(FakeActions.Calls,new[]{"readPower:ac","readPower:dc","fan:0:False","armoury:5","additional:True","setPower:ac","setPower:dc"},"A skipped Manual action must still restore overlays changed by a preceding fan action.");
+
+        FakeActions.Reset();FakeActions.ArmouryStatus="error";
+        RunReport failed=RunConfiguration(new ModeConfiguration{ArmouryMode=4,DarkTheme=1,Brightness=42},false);
+        AssertSequence(FakeActions.Calls,new[]{"readPower:ac","readPower:dc","armoury:4","additional:True","setPower:ac","setPower:dc","brightnessGlobal:42"},"A failed Armoury call may have changed power modes and must restore them while continuing later actions.");
+        Assert(failed.Steps.Count==5&&failed.Steps[0].Status=="error"&&failed.Steps[4].Status=="ok","An Armoury error must not discard the restoration or later selected preference.");
+
+        FakeActions.Reset();FakeActions.PowerReadFails=true;
+        RunReport unreadable=RunConfiguration(new ModeConfiguration{FanProfile=1,ArmouryMode=2,DarkTheme=1,Brightness=42},false);
+        AssertSequence(FakeActions.Calls,new[]{"readPower:ac","readPower:dc","additional:False","brightnessGlobal:42"},"Unreadable unselected Windows modes must prevent both ASUS changes while independent preferences continue.");
+        Assert(unreadable.Steps.Count==4&&unreadable.Steps[0].Name=="FanProfile"&&unreadable.Steps[0].Status=="skipped"&&unreadable.Steps[1].Name=="ArmouryMode"&&unreadable.Steps[1].Status=="skipped","Unsafe ASUS changes must be individually reported as skipped.");
+
+        FakeActions.Reset();FakeActions.PowerReadFails=true;
+        RunConfiguration(new ModeConfiguration{ArmouryMode=4,PowerMode=3},false);
+        AssertSequence(FakeActions.Calls,new[]{"armoury:4","additional:True","setPower:ac","setPower:dc"},"A selected Windows mode must permit Armoury without an unnecessary preservation read.");
+        FakeActions.Reset();
+    }
     static int Main()
     {
         try {
@@ -111,6 +150,7 @@ static class MultiDisplayRunnerTests
             report=Run(new ModeConfiguration { DisplayId="oldProfile",RefreshRate=144,Brightness=100 });
             Assert(report.Steps.Count==1&&FakeActions.Calls[0]=="mode:oldProfile","Old single-display mode settings must remain runnable without duplicating global brightness.");
             ConfiguredActionOrder();
+            ArmouryActionOrder();
             Console.WriteLine("PASS: "+checks+" production runner isolation/order checks with controlled adapters; no system settings changed.");
             return 0;
         } catch(Exception ex) { Console.Error.WriteLine(ex);return 1; }
@@ -120,9 +160,12 @@ static class MultiDisplayRunnerTests
 static class FakeActions
 {
     public static string ThrowOn,Missing;
-    public static bool WallpaperAvailable=true,WallpaperRunning=true;
+    public static bool WallpaperAvailable=true,WallpaperRunning=true,PowerReadFails;
+    public static string ArmouryStatus="ok";
     public static readonly List<string> Calls=new List<string>();
-    public static void Reset(){Calls.Clear();ThrowOn=null;Missing=null;WallpaperAvailable=true;WallpaperRunning=true;}
+    public static readonly Guid SavedACPower=new Guid("ded574b5-45a0-4f42-8737-46345c09c238"),SavedDCPower=new Guid("961cc777-2547-4f9d-8174-7d86181b8a7a");
+    public static readonly List<Guid> PowerWrites=new List<Guid>();
+    public static void Reset(){Calls.Clear();PowerWrites.Clear();ThrowOn=null;Missing=null;WallpaperAvailable=true;WallpaperRunning=true;PowerReadFails=false;ArmouryStatus="ok";}
     public static DisplayChangeResult Apply(string action,string id)
     {
         string name=action+":"+id;Calls.Add(name);
@@ -162,8 +205,8 @@ public sealed class RunReport
 public static class WindowsControl
 {
     public static List<StepResult> Restore(WindowsState state){return FakeActions.Empty();}
-    public static Guid ReadPowerMode(bool ac){FakeActions.Calls.Add("readPower:"+(ac?"ac":"dc"));return Guid.Empty;}
-    public static StepResult SetPowerMode(bool ac,Guid mode){return FakeActions.Step("setPower:"+(ac?"ac":"dc"),"PowerMode");}
+    public static Guid ReadPowerMode(bool ac){FakeActions.Calls.Add("readPower:"+(ac?"ac":"dc"));if(FakeActions.PowerReadFails)throw new InvalidOperationException("Controlled unreadable power mode.");return ac?FakeActions.SavedACPower:FakeActions.SavedDCPower;}
+    public static StepResult SetPowerMode(bool ac,Guid mode){FakeActions.PowerWrites.Add(mode);return FakeActions.Step("setPower:"+(ac?"ac":"dc"),"PowerMode");}
     public static List<StepResult> SetEnergySaver(bool value){return new List<StepResult>{FakeActions.Step("energy:"+value,"EnergySaver")};}
     public static List<StepResult> SetBrightness(int value){return new List<StepResult>{FakeActions.Step("brightnessGlobal:"+value,"Brightness")};}
     public static WindowsState ReadState(){return new WindowsState();}
@@ -173,6 +216,10 @@ public static class FanControl
     public static List<StepResult> Restore(FanState state){return FakeActions.Empty();}
     public static StepResult SetProfile(int mode,bool skip){return FakeActions.Step("fan:"+mode+":"+skip,"FanProfile");}
     public static FanState ReadState(){return new FanState();}
+}
+public static class ArmouryCrateControl
+{
+    public static StepResult Apply(int mode){FakeActions.Calls.Add("armoury:"+mode);return new StepResult("ArmouryMode",FakeActions.ArmouryStatus,null);}
 }
 public static class TaskbarControl
 {

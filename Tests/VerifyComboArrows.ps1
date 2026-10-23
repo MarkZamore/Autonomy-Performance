@@ -15,7 +15,7 @@ function Arrow($control,[string]$toggleName,[string]$pathName){[void]$control.Ap
 function Invoke-Motion([string]$method,[object[]]$arguments){return [ControlMotion].GetMethod($method,$flags).Invoke($null,$arguments)}
 try{
  Assert ([ControlMotion]::DurationMilliseconds -eq 120) 'Arrow transitions do not use the quick control duration'
- $names=@('FanModeSelector','DisplaySelector','ScaleSelector','ResolutionSelector','RefreshSelector','ContentBrightnessSelector')
+ $names=@('FanModeSelector','ArmouryModeSelector','DisplaySelector','ScaleSelector','ResolutionSelector','RefreshSelector','ContentBrightnessSelector')
  $transforms=New-Object 'Collections.Generic.List[Windows.Media.RotateTransform]'
  foreach($name in $names){
   $choice=$win.FindName($name);Assert ($choice -is [Windows.Controls.ComboBox]) ('Missing expected selection list: '+$name)
@@ -76,5 +76,5 @@ try{
  Frame 180;Assert ([Math]::Abs($categoryTurn.Angle+90) -lt 0.01) 'The category arrow does not finish pointing right'
  Assert (-not $win.IsVisible) 'Arrow verification unexpectedly opened the constructor'
  [pscustomobject]@{Passed=$true;Checks=$script:checks;Lists=$names;CategoryCount=6;DurationMilliseconds=120;OpenAngle=0;ClosedAngle=-90;CollapsedCategoryAngle=-90;ForwardSampleAngle=$forward;ForwardSampleMilliseconds=$sampleMilliseconds;NativePopupOpened=$false;ConstructorWindowShown=$false;OffscreenLoadedHost=$true;ClientAreaAnimation=[Windows.SystemParameters]::ClientAreaAnimation;SourceCompiledInIsolation=$true}|ConvertTo-Json -Depth 3|Set-Content -LiteralPath (Join-Path $art 'results.json') -Encoding UTF8
- 'PASS: '+$script:checks+' isolated arrow checks; six list arrows, six category arrows, actual animation frames, rapid reversal, initialization and no-animation fallback. An isolated offscreen host verified Loaded animation clocks; no popup or system setting was changed.'
+ 'PASS: '+$script:checks+' isolated arrow checks; seven list arrows, six category arrows, actual animation frames, rapid reversal, initialization and no-animation fallback. An isolated offscreen host verified Loaded animation clocks; no popup or system setting was changed.'
 }finally{if($motionHostWindow){$motionHostWindow.Close()};$win.Close()}

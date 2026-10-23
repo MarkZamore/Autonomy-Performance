@@ -13,6 +13,7 @@ $snapshot=[ConstructorWindow].GetMethod('ReadPresetCapabilities',[Reflection.Bin
 $results=@();$assertions=0
 function Assert($condition,$message){$script:assertions++;if(-not $condition){throw $message}}
 function Set-FanMode([int]$profile){$fan=$win.FindName('FanModeSelector');$fan.SelectedItem=@($fan.Items|Where-Object Profile -eq $profile)[0]}
+function Set-ArmouryMode([int]$mode){$selector=$win.FindName('ArmouryModeSelector');$selector.SelectedItem=@($selector.Items|Where-Object Mode -eq $mode)[0]}
 function Click($button){$button.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Primitives.ButtonBase]::ClickEvent))}
 function Get-SelectionFiles {
     @([IO.Directory]::GetFiles($root)+[IO.Directory]::GetFiles([Environment]::GetFolderPath([Environment+SpecialFolder]::DesktopDirectory)))|Sort-Object
@@ -47,6 +48,7 @@ function Get-ExpectedPreview($configuration) {
         if($target.DynamicRefresh -ne 0){$text.Add($prefix+$(if($target.DynamicRefresh -eq 1){'включить динамическую частоту обновления'}else{'выключить динамическую частоту обновления'}))}
     }
     if($configuration.DarkTheme -eq 1){$text.Add('Включить тёмную тему Windows')}
+    if($configuration.ArmouryMode -ne 0){$choice=@($win.FindName('ArmouryModeSelector').Items|Where-Object Mode -eq $configuration.ArmouryMode)[0];$text.Add('Armoury Crate: '+$choice.Label)}
     if($configuration.FanProfile -ne 0){$text.Add($(if($configuration.FanProfile -eq 2){'Производительный режим вентилятора'}else{'Тихий режим вентилятора'}))}
     if($configuration.WallpaperApplication -eq 1){$text.Add('Запустить Wallpaper Engine')}
     if($configuration.WallpaperPlayback -ne 0){$text.Add($(if($configuration.WallpaperPlayback -eq 1){'Продолжить воспроизведение обоев Wallpaper Engine'}else{'Поставить обои Wallpaper Engine на паузу'}))}
@@ -60,6 +62,7 @@ function Assert-Preset([bool]$performance,[string]$label) {
     Assert ($c.PowerMode -eq $(if(-not $capabilities.PowerMode){0}elseif($performance){3}else{1})) ('Wrong Windows power mode: '+$label)
     Assert ($c.DarkTheme -eq $(if($capabilities.DarkTheme){1}else{0})) ('Missing common actions: '+$label)
     Assert ($c.FanProfile -eq $(if(-not $capabilities.FanProfile){0}elseif($performance){2}else{1})) ('Wrong available fan mode: '+$label)
+    Assert ($c.ArmouryMode -eq $(if(-not $capabilities.ArmouryMode){0}elseif($performance){4}else{2})) ('Wrong available Armoury mode: '+$label)
     Assert ($c.Brightness -eq -1 -and -not $win.FindName('BrightnessToggleButton').IsChecked) ('Preset selected brightness: '+$label)
     foreach($field in @('PresenceSleep','PresenceDim','AdaptiveBrightness','ScreenSaver','UsbPower','BatteryCare','NightLight','PresenceWake','PresenceOnlooker','BatteryPercentage','ClockSeconds')){
         Assert ($c.$field -eq 0 -and $null -eq $win.FindName($field+'Switch').IsChecked) ('Unrelated action selected: '+$label+' '+$field)
@@ -94,7 +97,7 @@ try {
     foreach($custom in @($false,$true)) {
         foreach($performance in @($false,$true)) {
             $label=$(if($performance){'performance'}else{'autonomy'})+'-'+$(if($custom){'custom'}else{'builtin'})
-            $win.FindName('EnergySaverSwitch').IsChecked=$false;Set-FanMode 3
+            $win.FindName('EnergySaverSwitch').IsChecked=$false;Set-FanMode 3;Set-ArmouryMode 5
             $win.FindName('Balanced').IsChecked=$true;$win.FindName('BrightnessToggleButton').IsChecked=$true;$win.FindName('BrightnessSlider').Value=22
             foreach($field in $additional){$win.FindName($field+'Switch').IsChecked=$true}
             foreach($display in @($win.FindName('DisplaySelector').Items)){
@@ -116,9 +119,11 @@ try {
             # Exported real presets are inspected as resources, never executed.
             if($win.FindName('Balanced').IsEnabled){$win.FindName('Balanced').IsChecked=$true}
             if($win.FindName('FanModeSelector').IsEnabled){Set-FanMode 1}
+            if($win.FindName('ArmouryModeSelector').IsEnabled){Set-ArmouryMode 3}
             $win.FindName('BrightnessToggleButton').IsChecked=$false;$edited=$ui.Configuration
             Assert ($edited.PowerMode -eq $(if($win.FindName('Balanced').IsEnabled){2}else{0})) ('Power mode cannot be edited: '+$label)
             Assert ($edited.FanProfile -eq $(if($win.FindName('FanModeSelector').IsEnabled){1}else{0})) ('Fan mode cannot be edited: '+$label)
+            Assert ($edited.ArmouryMode -eq $(if($win.FindName('ArmouryModeSelector').IsEnabled){3}else{0})) ('Armoury mode cannot be edited: '+$label)
             Assert (-not $win.FindName('BestPerformance').IsChecked -and -not $win.FindName('Efficiency').IsChecked) ('Manual power conflict failed: '+$label)
             if($edited.Displays.Count -gt 0){
                 $paragraphs=@($ui.PreviewText -split '\r?\n\r?\n');$index=-1

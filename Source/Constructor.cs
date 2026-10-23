@@ -8,7 +8,7 @@ public sealed class ConstructorWindow
     public readonly IconSelection IconChoice=new IconSelection();
     readonly CheckBox[] powerChecks,switches;readonly Button save,iconButton;readonly Image currentIcon;readonly Popup popup;readonly UniformGrid icons;readonly TextBlock status;readonly ScrollViewer preview;readonly ItemsControl previewItems;readonly TextBlock previewEmpty;
     readonly CheckBox addToStartMenu;
-    readonly ToggleButton brightnessToggle;readonly Slider brightnessSlider,nightLightSlider;readonly ComboBox fanSelector,displaySelector,resolutionSelector,refreshSelector,scaleSelector,contentBrightnessSelector;readonly TextBlock displayUnavailable;
+    readonly ToggleButton brightnessToggle;readonly Slider brightnessSlider,nightLightSlider;readonly ComboBox fanSelector,armourySelector,displaySelector,resolutionSelector,refreshSelector,scaleSelector,contentBrightnessSelector;readonly TextBlock displayUnavailable;
     static readonly string[] switchNames={"EnergySaverSwitch","DarkThemeSwitch","HdrSwitch","PresenceSleepSwitch","PresenceDimSwitch","AdaptiveBrightnessSwitch","ScreenSaverSwitch","UsbPowerSwitch","WallpaperPlaybackSwitch","WallpaperAudioSwitch","BatteryCareSwitch","WallpaperApplicationSwitch","NightLightSwitch","DynamicRefreshSwitch","BatteryPercentageSwitch","ClockSecondsSwitch","PresenceWakeSwitch","PresenceOnlookerSwitch"};
     bool updating,updatingDisplays;
     readonly DispatcherTimer displayRefreshTimer;HwndSource displayMessageSource;bool displayRefreshRunning,displayRefreshPending,displayObserverClosed;
@@ -25,6 +25,7 @@ public sealed class ConstructorWindow
     public sealed class ScaleChoice {public int Percent;public bool Recommended;public override string ToString(){return Percent==0?"Не менять масштаб":Percent+"%"+(Recommended?" (рекомендуется)":"");}}
     public sealed class ContentChoice {public int Value;public string Label;public override string ToString(){return Label;}}
     public sealed class FanModeChoice {public int Profile;public string Label;public override string ToString(){return Label;}}
+    public sealed class ArmouryModeChoice {public int Mode;public string Label;public override string ToString(){return Label;}}
     CheckBox Action(string name){return (CheckBox)Window.FindName(name);}
     static readonly string[] iconNames={"Autonomy&Performance","Батарея","Экономия энергии","Производительность","Скорость","Своя иконка ICO"};
     public ConstructorWindow()
@@ -38,6 +39,9 @@ public sealed class ConstructorWindow
         fanSelector=(ComboBox)Window.FindName("FanModeSelector");
         fanSelector.ItemsSource=new[]{new FanModeChoice{Profile=0,Label="Не менять режим вентилятора"},new FanModeChoice{Profile=1,Label="Тихий режим"},new FanModeChoice{Profile=2,Label="Режим высокой производительности"},new FanModeChoice{Profile=3,Label="Стандартный режим"}};fanSelector.SelectedIndex=0;
         fanSelector.SelectionChanged+=delegate{SelectionChanged(null,null);};
+        armourySelector=(ComboBox)Window.FindName("ArmouryModeSelector");
+        armourySelector.ItemsSource=new[]{new ArmouryModeChoice{Mode=0,Label="Не менять режим работы"},new ArmouryModeChoice{Mode=1,Label="Windows®"},new ArmouryModeChoice{Mode=2,Label="Тихий"},new ArmouryModeChoice{Mode=3,Label="Эффективность"},new ArmouryModeChoice{Mode=4,Label="Турбо"},new ArmouryModeChoice{Mode=5,Label="Ручная"}};armourySelector.SelectedIndex=0;
+        armourySelector.SelectionChanged+=delegate{SelectionChanged(null,null);};
         switches=new CheckBox[switchNames.Length];for(int i=0;i<switchNames.Length;i++){
             switches[i]=(CheckBox)Window.FindName(switchNames[i]);switches[i].Checked+=SelectionChanged;switches[i].Unchecked+=SelectionChanged;switches[i].Indeterminate+=SelectionChanged;
             switches[i].PreviewMouseLeftButtonDown+=SwitchPointerDown;switches[i].PreviewKeyDown+=SwitchKeyDown;
@@ -61,7 +65,7 @@ public sealed class ConstructorWindow
         displaySelector=(ComboBox)Window.FindName("DisplaySelector");refreshSelector=(ComboBox)Window.FindName("RefreshSelector");displayUnavailable=(TextBlock)Window.FindName("DisplayUnavailable");
         resolutionSelector=(ComboBox)Window.FindName("ResolutionSelector");
         scaleSelector=(ComboBox)Window.FindName("ScaleSelector");contentBrightnessSelector=(ComboBox)Window.FindName("ContentBrightnessSelector");
-        foreach(ComboBox choice in new[]{fanSelector,displaySelector,resolutionSelector,refreshSelector,scaleSelector,contentBrightnessSelector})ControlMotion.AttachComboBox(choice);
+        foreach(ComboBox choice in new[]{fanSelector,armourySelector,displaySelector,resolutionSelector,refreshSelector,scaleSelector,contentBrightnessSelector})ControlMotion.AttachComboBox(choice);
         contentBrightnessSelector.ItemsSource=new[]{new ContentChoice{Value=0,Label="Не менять яркость с учётом содержимого"},new ContentChoice{Value=1,Label="Всегда"},new ContentChoice{Value=3,Label="Только при питании от батареи"}};contentBrightnessSelector.SelectedIndex=0;
         nightLightSlider=(Slider)Window.FindName("NightLightSlider");nightLightSlider.ValueChanged+=delegate{SelectionChanged(null,null);};
         brightnessToggle=(ToggleButton)Window.FindName("BrightnessToggleButton");brightnessSlider=(Slider)Window.FindName("BrightnessSlider");
@@ -129,7 +133,7 @@ public sealed class ConstructorWindow
             foreach(DisplayModeConfiguration action in displaySettings.Values)if(action.HasActions)displays.Add(CloneDisplay(action));
             displays.Sort(delegate(DisplayModeConfiguration a,DisplayModeConfiguration b){int order=DisplayNumber(a.DisplayId).CompareTo(DisplayNumber(b.DisplayId));return order!=0?order:StringComparer.OrdinalIgnoreCase.Compare(a.DisplayId,b.DisplayId);});
             return new ModeConfiguration{Displays=displays.ToArray(),
-                EnergySaver=SwitchValue(Action("EnergySaverSwitch")),FanProfile=SelectedFanProfile(),
+                EnergySaver=SwitchValue(Action("EnergySaverSwitch")),FanProfile=SelectedFanProfile(),ArmouryMode=SelectedArmouryMode(),
                 PowerMode=SelectedMode(powerChecks),
                 DarkTheme=SwitchValue(Action("DarkThemeSwitch")),SleepTimeout=0,ScreenTimeout=0,
                 PresenceSleep=SwitchValue(Action("PresenceSleepSwitch")),PresenceDim=SwitchValue(Action("PresenceDimSwitch")),
@@ -190,6 +194,7 @@ public sealed class ConstructorWindow
             fanSelector.IsEnabled=screenXpert;if(!screenXpert)SetFanProfile(0);
             SetProgramCategoryAvailable("WallpaperSection",wallpaperEngine,new[]{"WallpaperPlaybackSwitch","WallpaperAudioSwitch","WallpaperApplicationSwitch"});
             SetProgramCategoryAvailable("ArmourySection",armouryCrate,new string[0]);
+            armourySelector.IsEnabled=armouryCrate;if(!armouryCrate)SetArmouryMode(0);
         }finally{updating=previous;}
         SelectionChanged(null,null);
     }
@@ -204,6 +209,8 @@ public sealed class ConstructorWindow
     static int SelectedMode(CheckBox[] choices){for(int i=0;i<choices.Length;i++)if(choices[i].IsEnabled&&choices[i].IsChecked==true)return i+1;return 0;}
     int SelectedFanProfile(){FanModeChoice choice=fanSelector.SelectedItem as FanModeChoice;return fanSelector.IsEnabled&&choice!=null?choice.Profile:0;}
     void SetFanProfile(int profile){foreach(FanModeChoice choice in fanSelector.Items)if(choice.Profile==profile){fanSelector.SelectedItem=choice;return;}fanSelector.SelectedIndex=0;}
+    int SelectedArmouryMode(){ArmouryModeChoice choice=armourySelector.SelectedItem as ArmouryModeChoice;return armourySelector.IsEnabled&&choice!=null?choice.Mode:0;}
+    void SetArmouryMode(int mode){foreach(ArmouryModeChoice choice in armourySelector.Items)if(choice.Mode==mode){armourySelector.SelectedItem=choice;return;}armourySelector.SelectedIndex=0;}
     static void CycleSwitch(CheckBox control)
     {
         if(!control.IsThreeState)control.IsChecked=control.IsChecked!=true;
@@ -256,6 +263,7 @@ public sealed class ConstructorWindow
             foreach(CheckBox check in switches)check.IsChecked=null;
             for(int i=0;i<powerChecks.Length;i++)powerChecks[i].IsChecked=preset.PowerMode==i+1;
             SetFanProfile(preset.FanProfile);
+            SetArmouryMode(preset.ArmouryMode);
             SetPresetSwitch("EnergySaverSwitch",preset.EnergySaver);
             SetPresetSwitch("DarkThemeSwitch",preset.DarkTheme);
             SetPresetSwitch("WallpaperPlaybackSwitch",preset.WallpaperPlayback);
@@ -276,6 +284,7 @@ public sealed class ConstructorWindow
             PowerMode=system.PowerMode&&powerChecks[performance?2:0].IsEnabled,
             DarkTheme=system.DarkTheme&&Action("DarkThemeSwitch").IsEnabled,
             FanProfile=system.FanProfile&&fanSelector.IsEnabled,
+            ArmouryMode=armourySelector.IsEnabled,
             WallpaperPlayback=Action("WallpaperPlaybackSwitch").IsEnabled,
             WallpaperAudio=Action("WallpaperAudioSwitch").IsEnabled,
             WallpaperApplication=Action("WallpaperApplicationSwitch").IsEnabled
@@ -298,7 +307,7 @@ public sealed class ConstructorWindow
     }
     public void ResetScript(){
         bool previous=updating,previousDisplays=updatingDisplays;updating=true;updatingDisplays=true;
-        try{foreach(CheckBox check in switches)check.IsChecked=null;foreach(CheckBox check in powerChecks)check.IsChecked=false;SetFanProfile(0);displaySettings.Clear();nightLightSlider.Value=50;LoadDisplayEditor();}
+        try{foreach(CheckBox check in switches)check.IsChecked=null;foreach(CheckBox check in powerChecks)check.IsChecked=false;SetFanProfile(0);SetArmouryMode(0);displaySettings.Clear();nightLightSlider.Value=50;LoadDisplayEditor();}
         finally{updating=previous;updatingDisplays=previousDisplays;}
         SelectionChanged(null,null);
     }
@@ -438,6 +447,7 @@ public sealed class ConstructorWindow
         PreviewSwitch("PresenceOnlookerSwitch",c.PresenceOnlooker,"Обнаружить, когда другие люди смотрят на мой экран","Выключить обнаружение других людей, смотрящих на экран");
         PreviewSwitch("BatteryPercentageSwitch",c.BatteryPercentage,"Показывать процент заряда батареи на панели задач","Скрыть процент заряда батареи на панели задач");
         PreviewSwitch("ClockSecondsSwitch",c.ClockSeconds,"Показывать секунды в часах на панели задач","Скрыть секунды в часах на панели задач");
+        if(c.ArmouryMode!=0)AddPreview("ArmouryMode",null,"Armoury Crate: "+((ArmouryModeChoice)armourySelector.SelectedItem).Label);
         if(c.FanProfile!=0)AddPreview("FanProfile",null,c.FanProfile==1?"Тихий режим вентилятора":c.FanProfile==2?"Производительный режим вентилятора":"Стандартный режим вентилятора");
         PreviewSwitch("BatteryCareSwitch",c.BatteryCare,"Включить режим бережной зарядки","Выключить режим бережной зарядки");
         PreviewSwitch("WallpaperApplicationSwitch",c.WallpaperApplication,"Запустить Wallpaper Engine","Завершить Wallpaper Engine");
@@ -493,6 +503,7 @@ public sealed class ConstructorWindow
             }if(entry.Key=="Brightness"||String.Equals(entry.DisplayId,editingDisplayId,StringComparison.OrdinalIgnoreCase))LoadDisplayEditor();}
             else if(entry.Key=="PowerMode")foreach(CheckBox check in powerChecks)check.IsChecked=false;
             else if(entry.Key=="FanProfile")SetFanProfile(0);
+            else if(entry.Key=="ArmouryMode")SetArmouryMode(0);
             else Action(entry.Key).IsChecked=null;
         }finally{updating=previous;}
         SelectionChanged(null,null);

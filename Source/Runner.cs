@@ -59,9 +59,9 @@ internal static class Runner
         if(c.ClockSeconds!=0)report.Steps.Add(TaskbarControl.SetPreference(false,c.ClockSeconds==1));
         if(c.BatteryCare!=0)report.Steps.Add(BatteryCareControl.Set(c.BatteryCare==1));
         Guid? savedAC=null,savedDC=null;
-        bool preservePower=true,fanMayHaveChanged=false;
+        bool preservePower=true,fanMayHaveChanged=false,armouryMayHaveChanged=false;
         bool additionalSchemeRefresh=c.SleepTimeout!=0||c.ScreenTimeout!=0||c.AdaptiveBrightness!=0;
-        if(c.PowerMode==0&&((c.FanProfile!=0&&!skipFan)||additionalSchemeRefresh)){
+        if(c.PowerMode==0&&((c.FanProfile!=0&&!skipFan)||c.ArmouryMode!=0||additionalSchemeRefresh)){
             try{savedAC=WindowsControl.ReadPowerMode(true);}catch{preservePower=false;}
             try{savedDC=WindowsControl.ReadPowerMode(false);}catch{preservePower=false;}
         }
@@ -73,11 +73,19 @@ internal static class Runner
             }
             else report.Steps.Add(new StepResult("FanProfile","skipped","Cannot preserve unreadable unselected AC/DC power modes safely."));
         }
+        if(c.ArmouryMode!=0){
+            if(preservePower){
+                StepResult armouryResult=ArmouryCrateControl.Apply(c.ArmouryMode);
+                report.Steps.Add(armouryResult);
+                armouryMayHaveChanged=armouryResult.Status!="skipped";
+            }
+            else report.Steps.Add(new StepResult("ArmouryMode","skipped","Cannot preserve unreadable unselected AC/DC power modes safely."));
+        }
         report.Steps.AddRange(AdditionalControl.Apply(c,preservePower||c.PowerMode!=0));
         if(c.PowerMode!=0){
             report.Steps.Add(WindowsControl.SetPowerMode(true,ModeConfiguration.PowerGuid(c.PowerMode)));
             report.Steps.Add(WindowsControl.SetPowerMode(false,ModeConfiguration.PowerGuid(c.PowerMode)));
-        }else if(fanMayHaveChanged||additionalSchemeRefresh){
+        }else if(fanMayHaveChanged||armouryMayHaveChanged||additionalSchemeRefresh){
             if(savedAC.HasValue)report.Steps.Add(WindowsControl.SetPowerMode(true,savedAC.Value));
             if(savedDC.HasValue)report.Steps.Add(WindowsControl.SetPowerMode(false,savedDC.Value));
         }

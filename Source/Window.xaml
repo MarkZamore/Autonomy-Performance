@@ -63,7 +63,7 @@
                     </Expander>
                     <Expander x:Name="ArmourySection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="Armoury Crate">
                         <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="ArmouryCrateIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.ArmouryCrate}"/><TextBlock Grid.Column="1" Text="Armoury Crate" VerticalAlignment="Center"/></Grid></Expander.Header>
-                        <Grid/>
+                        <ComboBox x:Name="ArmouryModeSelector" AutomationProperties.Name="Режим работы Armoury Crate" ToolTip="Если ручной режим не настроен или выбранный режим недоступен, скрипт пропустит действие."/>
                     </Expander>
                     <Expander x:Name="PerformanceSection" Margin="{StaticResource Gap.Row}" AutomationProperties.Name="ScreenXpert">
                         <Expander.Header><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="36"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><Image x:Name="ScreenXpertIcon" Style="{StaticResource AppCategoryIcon}" Source="{StaticResource Icon.ScreenXpert}"/><TextBlock Grid.Column="1" Text="ScreenXpert" VerticalAlignment="Center"/></Grid></Expander.Header>

@@ -22,9 +22,14 @@ public static class ProgramAvailability
     public static ProgramAvailabilitySnapshot Read()
     {
         bool screen=DesktopInstalled("ScreenXpert",new[]{"AsusScreenXpertUI.exe","ScreenXpert.exe"},@"ASUS\AsusScreenXpert")||PackageInstalled("B9ECED6F.ScreenPadMaster_qmba6cd70vzyy");
-        bool armoury=PackageInstalled("B9ECED6F.ArmouryCrate_qmba6cd70vzyy")||PackageInstalled("B9ECED6F.ArmouryCrateSE_qmba6cd70vzyy")||DesktopInstalled("ArmouryCrate",new[]{"ArmouryCrate.exe","ArmouryCrateSE.exe"},@"ASUS\ARMOURY CRATE");
+        bool armoury=IsArmouryCrateInstalled();
         bool wallpaper=false;try{wallpaper=WallpaperControl.FindInstalled()!=null;}catch{}
         return new ProgramAvailabilitySnapshot(screen,wallpaper,armoury);
+    }
+
+    public static bool IsArmouryCrateInstalled()
+    {
+        return PackageInstalled("B9ECED6F.ArmouryCrate_qmba6cd70vzyy")||PackageInstalled("B9ECED6F.ArmouryCrateSE_qmba6cd70vzyy")||DesktopInstalled("ArmouryCrate",new[]{"ArmouryCrate.exe","ArmouryCrateSE.exe"},@"ASUS\ARMOURY CRATE");
     }
 
     static bool PackageInstalled(string family)

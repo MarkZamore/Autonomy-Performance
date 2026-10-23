@@ -20,7 +20,7 @@ static class AdaptivePresetTests
     }
     static PresetCapabilities Complete()
     {
-        return new PresetCapabilities { EnergySaver=true,PowerMode=true,DarkTheme=true,FanProfile=true,WallpaperPlayback=true,WallpaperAudio=true,WallpaperApplication=true };
+        return new PresetCapabilities { EnergySaver=true,PowerMode=true,DarkTheme=true,FanProfile=true,ArmouryMode=true,WallpaperPlayback=true,WallpaperAudio=true,WallpaperApplication=true };
     }
     static DisplayModeConfiguration Find(ModeConfiguration configuration,string id)
     {
@@ -59,6 +59,7 @@ static class AdaptivePresetTests
             Assert(configuration.PowerMode==(performance?3:1),"Wrong Windows power mode");
             Assert(configuration.DarkTheme==1,"Shared dark theme missing");
             Assert(configuration.FanProfile==(performance?2:1),"Wrong ASUS fan mode");
+            Assert(configuration.ArmouryMode==(performance?4:2),"Wrong Armoury Crate operating mode");
             Assert(configuration.WallpaperPlayback==(performance?1:2)&&configuration.WallpaperAudio==(performance?1:2),"Wrong wallpaper playback/audio direction");
             Assert(configuration.WallpaperApplication==(performance?1:0),"Wallpaper launch belongs only to performance");
             Assert(configuration.GetDisplayActions().Length==(performance?4:3),"Configure every capable monitor; omit a monitor whose requested actions are all unavailable");
@@ -92,12 +93,12 @@ static class AdaptivePresetTests
             Assert(!empty.HasActions&&empty.GetDisplayActions().Length==0,"A machine with no available features must remain empty");
             Unrequested(empty,"Unavailable capabilities");
         }
-        foreach(string feature in new[]{"EnergySaver","PowerMode","DarkTheme","FanProfile","WallpaperPlayback","WallpaperAudio","WallpaperApplication"}) {
+        foreach(string feature in new[]{"EnergySaver","PowerMode","DarkTheme","FanProfile","ArmouryMode","WallpaperPlayback","WallpaperAudio","WallpaperApplication"}) {
             PresetCapabilities available=new PresetCapabilities();typeof(PresetCapabilities).GetField(feature).SetValue(available,true);
             foreach(bool performance in new[]{false,true}) {
                 ModeConfiguration configuration=PresetBuilder.Build(performance,available);configuration.Validate();
-                foreach(string action in new[]{"EnergySaver","PowerMode","DarkTheme","FanProfile","WallpaperPlayback","WallpaperAudio","WallpaperApplication"}) {
-                    int expected=action!=feature?0:action=="EnergySaver"?(performance?2:1):action=="PowerMode"?(performance?3:1):action=="FanProfile"?(performance?2:1):action=="WallpaperPlayback"||action=="WallpaperAudio"?(performance?1:2):action=="WallpaperApplication"?(performance?1:0):1;
+                foreach(string action in new[]{"EnergySaver","PowerMode","DarkTheme","FanProfile","ArmouryMode","WallpaperPlayback","WallpaperAudio","WallpaperApplication"}) {
+                    int expected=action!=feature?0:action=="EnergySaver"?(performance?2:1):action=="PowerMode"?(performance?3:1):action=="FanProfile"?(performance?2:1):action=="ArmouryMode"?(performance?4:2):action=="WallpaperPlayback"||action=="WallpaperAudio"?(performance?1:2):action=="WallpaperApplication"?(performance?1:0):1;
                     Assert((int)typeof(ModeConfiguration).GetField(action).GetValue(configuration)==expected,"Capability gating failed: "+feature+" / "+action);
                 }
                 Unrequested(configuration,"Single capability "+feature);
@@ -172,9 +173,35 @@ static class AdaptivePresetTests
         laptop.Display.Width=0;
         Assert(PresetBuilder.BuildDisplay(false,laptop).DisplayScale==0,"Unknown target dimensions must not select an autonomy scale");
     }
+    static void ArmouryConfiguration()
+    {
+        JavaScriptSerializer serializer=new JavaScriptSerializer();
+        Assert(new ModeConfiguration().Version==2,"Adding Armoury mode must preserve the export configuration version");
+        foreach(int version in new[]{1,2}) {
+            ModeConfiguration legacy=serializer.Deserialize<ModeConfiguration>("{\"Version\":"+version+",\"EnergySaver\":1}");
+            legacy.Validate();
+            Assert(legacy.ArmouryMode==0&&legacy.EnergySaver==1,"Older exports must leave Armoury mode unchanged");
+            for(int mode=0;mode<=5;mode++) {
+                ModeConfiguration configuration=new ModeConfiguration { Version=version,ArmouryMode=mode };
+                configuration.Validate();
+                Assert(configuration.HasActions==(mode!=0),"Armoury mode must count as an action only when selected");
+                ModeConfiguration restored=serializer.Deserialize<ModeConfiguration>(serializer.Serialize(configuration));
+                restored.Validate();
+                Assert(restored.Version==version&&restored.ArmouryMode==mode&&restored.HasActions==(mode!=0),"Armoury mode must survive configuration serialization");
+                Assert(restored.FanProfile==0&&restored.PowerMode==0,"Armoury mode must not add other ASUS or Windows power actions");
+                Unrequested(restored,"Armoury-only configuration");
+            }
+        }
+        foreach(int mode in new[]{Int32.MinValue,-1,6,Int32.MaxValue}) {
+            bool rejected=false;
+            try { new ModeConfiguration { ArmouryMode=mode }.Validate(); }
+            catch(System.IO.InvalidDataException) { rejected=true; }
+            Assert(rejected,"Unsupported Armoury mode must fail configuration validation: "+mode);
+        }
+    }
     static int Run()
     {
-        MainPresets();MissingFeatures();ManyDisplays();RecommendedScales();
+        MainPresets();MissingFeatures();ManyDisplays();RecommendedScales();ArmouryConfiguration();
         Console.WriteLine("PASS: "+checks+" synthetic adaptive-preset checks; no settings changed and no exported EXE executed.");return 0;
     }
     static int Main(string[] args)

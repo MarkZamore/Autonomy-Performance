@@ -13,7 +13,7 @@ try{
         $image=$win.FindName($item[2]);Assert ($image.Source -is [Windows.Media.DrawingImage]) ('Category icon is not an embedded vector: '+$item[1])
         Assert ($image.Width -eq 20 -and $image.Height -eq 20 -and $image.Source.Width -eq 20 -and $image.Source.Height -eq 20) ('Category icon dimensions differ: '+$item[1])
     }
-    Assert ($win.FindName('ArmourySection').Content -is [Windows.Controls.Grid] -and $win.FindName('ArmourySection').Content.Children.Count -eq 0) 'Armoury Crate is not empty'
+    $armoury=$win.FindName('ArmouryModeSelector');Assert ($win.FindName('ArmourySection').Content -eq $armoury -and $armoury -is [Windows.Controls.ComboBox] -and $armoury.Items.Count -eq 6 -and $armoury.Items[0].ToString() -eq 'Не менять режим работы') 'Armoury Crate operating-mode list is incomplete'
     $fan=$win.FindName('FanModeSelector');Assert ($fan -is [Windows.Controls.ComboBox] -and $fan.Items.Count -eq 4 -and $fan.Items[0].ToString() -eq 'Не менять режим вентилятора') 'Fan mode list is incomplete'
     $fan.SelectedIndex=3;Assert ($ui.Configuration.FanProfile -eq 3 -and $ui.PreviewText.Contains('Стандартный режим вентилятора') -and -not $ui.PreviewText.Contains('вентиляторов')) 'Standard fan mode missing from config/preview'
     $fan.SelectedIndex=0
