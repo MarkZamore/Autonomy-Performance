@@ -14,7 +14,7 @@
 
 - Включение и выключение энергосбережения.
 - Тихий, стандартный и высокопроизводительный режим вентилятора в категории ScreenXpert на поддерживаемых устройствах ASUS.
-- Режим работы Armoury Crate: Windows®, «Тихий», «Эффективность», «Турбо» или «Ручная».
+- Режим работы Armoury Crate: Windows, «Тихий», «Эффективность», «Турбо» или «Ручная».
 - Пауза/продолжение и звук обоев; запуск и завершение Wallpaper Engine напрямую, без запуска Steam.
 - Эффективный, сбалансированный и производительный режимы питания Windows.
 - Общая настройка яркости поддерживаемого экрана от 0 до 100% с ползунком и отдельным тумблером действия.
@@ -82,7 +82,7 @@ Wallpaper Engine использует готовую контурную икон
 .\Tests\VerifyExport.ps1
 .\Tests\VerifyTaskbarPreferences.ps1
 .\Tests\VerifyNightLightPreferences.ps1
-powershell.exe -NoProfile -STA -File .\Tests\VerifyNewSettings.ps1
+powershell.exe -NoProfile -STA -File .\Tests\VerifyLatestSettings.ps1
 powershell.exe -NoProfile -STA -File .\Tests\VerifySelectionControls.ps1
 powershell.exe -NoProfile -STA -File .\Tests\VerifyControlMotion.ps1
 powershell.exe -NoProfile -STA -File .\Tests\VerifySaveState.ps1
@@ -93,6 +93,6 @@ powershell.exe -NoProfile -STA -File .\Tests\VerifyPreviewHeader.ps1 -Builder .\
 powershell.exe -NoProfile -STA -File .\Tests\VerifyOverlayScroll.ps1
 ```
 
-Проверки `VerifyFunctional`, `VerifyDisplay`, `VerifyDisplayFeatures`, `VerifyAdditionalFunctional`, `VerifyNativeModes` и `VerifyTheme` действительно меняют системные параметры с последующим восстановлением. Не запускайте их одновременно с ручной настройкой компьютера. Локальные отчёты и трассы исключены из репозитория; выполненные проверки и ограничения описаны в [`Tests/RESULTS.md`](Tests/RESULTS.md).
+Проверки `VerifyFunctional`, `VerifyDisplayFeatures`, `VerifyAdditionalFunctional` и `VerifyNativeModes` действительно меняют системные параметры с последующим восстановлением. Не запускайте их одновременно с ручной настройкой компьютера. Актуальный набор и замены удалённых проверок перечислены в [`Tests/README.md`](Tests/README.md). Локальные отчёты и трассы исключены из репозитория; выполненные проверки и ограничения описаны в [`Tests/RESULTS.md`](Tests/RESULTS.md).
 
 «Исправление панели задач» перенесено в [JustEnoughTools](https://github.com/MarkZamore/JustEnoughTools). Остальные настройки панели задач сохранены.

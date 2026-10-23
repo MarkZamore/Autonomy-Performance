@@ -43,12 +43,19 @@ try{
  [void](Invoke-Private 'BeginPreviewPointer' @([int]0,$point,$true))
  Assert (Invoke-Private 'CompletePreviewPointer' @([int]0,$point)) 'A click on one action is not accepted'
  Assert (-not (Invoke-Private 'CompletePreviewPointer' @([int]0,$point))) 'A completed click can be processed twice'
+ $origin=[Windows.Point]::new(0,0)
+ foreach($distance in @([Windows.Point]::new([Windows.SystemParameters]::MinimumHorizontalDragDistance,0),[Windows.Point]::new(0,[Windows.SystemParameters]::MinimumVerticalDragDistance))){
+  [void](Invoke-Private 'BeginPreviewPointer' @([int]0,$origin,$true))
+  Assert (-not (Invoke-Private 'CompletePreviewPointer' @([int]0,$distance))) 'An exact drag threshold is treated as a click'
+  [void](Invoke-Private 'BeginPreviewPointer' @([int]0,$origin,$true))
+  Assert (Invoke-Private 'CompletePreviewPointer' @([int]0,[Windows.Point]::new($distance.X/2,$distance.Y/2))) 'A movement below the drag threshold is treated as a drag'
+ }
  foreach($test in @(
   @{Name='different action';Start=0;End=1;Allow=$true;Move=$null;Finish=$point},
   @{Name='blank gutter or scrollbar';Start=-1;End=-1;Allow=$true;Move=$null;Finish=$point},
   @{Name='modified or multiple click';Start=0;End=0;Allow=$false;Move=$null;Finish=$point},
-  @{Name='horizontal drag';Start=0;End=0;Allow=$true;Move=$null;Finish=[Windows.Point]::new(10+[Windows.SystemParameters]::MinimumHorizontalDragDistance,10)},
-  @{Name='vertical drag';Start=0;End=0;Allow=$true;Move=$null;Finish=[Windows.Point]::new(10,10+[Windows.SystemParameters]::MinimumVerticalDragDistance)},
+  @{Name='horizontal drag';Start=0;End=0;Allow=$true;Move=$null;Finish=[Windows.Point]::new(10+[Math]::Ceiling([Windows.SystemParameters]::MinimumHorizontalDragDistance),10)},
+  @{Name='vertical drag';Start=0;End=0;Allow=$true;Move=$null;Finish=[Windows.Point]::new(10,10+[Math]::Ceiling([Windows.SystemParameters]::MinimumVerticalDragDistance))},
   @{Name='drag then return';Start=0;End=0;Allow=$true;Move=[Windows.Point]::new(40,40);Finish=$point}
  )){
   $before=Configuration-Text

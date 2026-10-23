@@ -40,7 +40,7 @@ public sealed class ConstructorWindow
         fanSelector.ItemsSource=new[]{new FanModeChoice{Profile=0,Label="Не менять режим вентилятора"},new FanModeChoice{Profile=1,Label="Тихий режим"},new FanModeChoice{Profile=2,Label="Режим высокой производительности"},new FanModeChoice{Profile=3,Label="Стандартный режим"}};fanSelector.SelectedIndex=0;
         fanSelector.SelectionChanged+=delegate{SelectionChanged(null,null);};
         armourySelector=(ComboBox)Window.FindName("ArmouryModeSelector");
-        armourySelector.ItemsSource=new[]{new ArmouryModeChoice{Mode=0,Label="Не менять режим работы"},new ArmouryModeChoice{Mode=1,Label="Windows®"},new ArmouryModeChoice{Mode=2,Label="Тихий"},new ArmouryModeChoice{Mode=3,Label="Эффективность"},new ArmouryModeChoice{Mode=4,Label="Турбо"},new ArmouryModeChoice{Mode=5,Label="Ручная"}};armourySelector.SelectedIndex=0;
+        armourySelector.ItemsSource=new[]{new ArmouryModeChoice{Mode=0,Label="Не менять режим работы"},new ArmouryModeChoice{Mode=1,Label="Windows"},new ArmouryModeChoice{Mode=2,Label="Тихий"},new ArmouryModeChoice{Mode=3,Label="Эффективность"},new ArmouryModeChoice{Mode=4,Label="Турбо"},new ArmouryModeChoice{Mode=5,Label="Ручная"}};armourySelector.SelectedIndex=0;
         armourySelector.SelectionChanged+=delegate{SelectionChanged(null,null);};
         switches=new CheckBox[switchNames.Length];for(int i=0;i<switchNames.Length;i++){
             switches[i]=(CheckBox)Window.FindName(switchNames[i]);switches[i].Checked+=SelectionChanged;switches[i].Unchecked+=SelectionChanged;switches[i].Indeterminate+=SelectionChanged;

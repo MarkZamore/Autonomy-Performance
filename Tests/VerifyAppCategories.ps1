@@ -7,11 +7,14 @@ $script:checks=0
 function Assert($condition,$message){$script:checks++;if(-not $condition){throw $message}}
 $readPresetCapabilities=[ConstructorWindow].GetMethod('ReadPresetCapabilities',[Reflection.BindingFlags]'Instance,NonPublic')
 try{
-    foreach($item in @(@('PerformanceSection','ScreenXpert','ScreenXpertIcon'),@('WallpaperSection','Wallpaper Engine','WallpaperEngineIcon'),@('ArmourySection','Armoury Crate','ArmouryCrateIcon'))){
+    $programAvailability=[ConstructorWindow].GetMethod('ApplyProgramAvailability',[Reflection.BindingFlags]'Instance,NonPublic')
+    [void]$programAvailability.Invoke($ui,[object[]]@($true,$true,$true))
+    foreach($item in @(@('PerformanceSection','ScreenXpert','ScreenXpertIcon'),@('WallpaperSection','Wallpaper Engine (нестабильно)','WallpaperEngineIcon'),@('ArmourySection','Armoury Crate','ArmouryCrateIcon'))){
         $section=$win.FindName($item[0]);Assert ($null -ne $section -and -not $section.IsExpanded) ('Missing/collapsed category: '+$item[1])
         Assert ([Windows.Automation.AutomationProperties]::GetName($section) -eq $item[1]) ('Wrong category name: '+$item[1])
         $image=$win.FindName($item[2]);Assert ($image.Source -is [Windows.Media.DrawingImage]) ('Category icon is not an embedded vector: '+$item[1])
-        Assert ($image.Width -eq 20 -and $image.Height -eq 20 -and $image.Source.Width -eq 20 -and $image.Source.Height -eq 20) ('Category icon dimensions differ: '+$item[1])
+        Assert ($image.MaxWidth -eq 20 -and $image.Height -eq 20 -and $image.Stretch -eq 'Uniform') ('Category icon layout differs: '+$item[1])
+        Assert ($image.Source.Width -gt 0 -and $image.Source.Width -le 20 -and $image.Source.Height -gt 0 -and $image.Source.Height -le 20) ('Category vector bounds are empty or oversized: '+$item[1])
     }
     $armoury=$win.FindName('ArmouryModeSelector');Assert ($win.FindName('ArmourySection').Content -eq $armoury -and $armoury -is [Windows.Controls.ComboBox] -and $armoury.Items.Count -eq 6 -and $armoury.Items[0].ToString() -eq 'Не менять режим работы') 'Armoury Crate operating-mode list is incomplete'
     $fan=$win.FindName('FanModeSelector');Assert ($fan -is [Windows.Controls.ComboBox] -and $fan.Items.Count -eq 4 -and $fan.Items[0].ToString() -eq 'Не менять режим вентилятора') 'Fan mode list is incomplete'

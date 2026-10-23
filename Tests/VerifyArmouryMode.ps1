@@ -15,7 +15,7 @@ function Assert($condition,$message){$script:checks++;if(-not $condition){throw 
 function SetPrograms([bool]$installed){[void]$availability.Invoke($ui,[object[]]@($true,$true,$installed))}
 function SelectMode([int]$mode){$selector.SelectedItem=@($selector.Items|Where-Object Mode -eq $mode)[0]}
 try{
-    $labels=@('Не менять режим работы','Windows®','Тихий','Эффективность','Турбо','Ручная')
+    $labels=@('Не менять режим работы','Windows','Тихий','Эффективность','Турбо','Ручная')
     Assert ($selector -is [Windows.Controls.ComboBox] -and $selector.Items.Count -eq $labels.Count) 'Armoury operating-mode list is missing or incomplete'
     Assert ([Windows.Automation.AutomationProperties]::GetName($selector) -eq 'Режим работы Armoury Crate') 'Armoury operating-mode list has no accessible name'
     Assert ([object]::ReferenceEquals($selector.Style,$window.FindName('FanModeSelector').Style)) 'Armoury selector does not use the shared combo style'
