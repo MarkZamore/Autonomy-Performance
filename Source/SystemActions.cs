@@ -1,4 +1,5 @@
 ﻿using Microsoft.Win32;
+using WindowsPreferences;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -110,7 +111,24 @@ public static class WindowsControl
 
     public static List<StepResult> SetEnergySaver(bool enabled)
     {
-        return SetSaverOverride(enabled ? 1U : 2U, enabled);
+        return SetEnergySaver(enabled,value=>{StepResult result;return BrokerWindowsControl.Boolean(WindowsPreferenceId.EnergySaver,value,"EnergySaver",out result)?result:null;},
+            ReadSaverOverride,SetSaverOverride,value=>{using(var observer=new SaverObserver())return observer.WaitForDesired(value,3000);});
+    }
+    internal static List<StepResult> SetEnergySaver(bool enabled,Func<bool,StepResult> brokerApply,Func<uint> readOverride,
+        Func<uint,bool?,List<StepResult>> forceOverride,Func<bool,bool> observe)
+    {
+        try {
+            uint desired=enabled?1u:2u;
+            var broker=brokerApply(enabled);
+            if(broker==null)return forceOverride(desired,enabled);
+            if(broker.Status!="ok")return new List<StepResult>{broker};
+            // The Boolean model can match an automatic saver. A preset means
+            // forced On/Off; avoid issuing a matching toggle, and preserve the
+            // explicit override through the scoped native API if necessary.
+            if(readOverride()!=desired)return forceOverride(desired,enabled);
+            if(!observe(enabled))throw new InvalidOperationException("Effective energy saver status did not converge.");
+            return new List<StepResult>{broker};
+        }catch(Exception ex){return new List<StepResult>{new StepResult("EnergySaver","error",ErrorText(ex))};}
     }
 
     public static List<StepResult> SetBestPerformance()
@@ -201,6 +219,12 @@ public static class WindowsControl
         try
         {
             if(ReadPowerMode(ac)==desired)return new StepResult(name,"ok",desired+" already selected.");
+            StepResult broker;
+            int choice=desired==BestPerformanceGuid?2:desired==Guid.Empty?1:desired==new Guid("961cc777-2547-4f9d-8174-7d86181b8a7a")?0:-1;
+            if(choice>=0 && BrokerWindowsControl.Choice(ac?WindowsPreferenceId.PowerModeAC:WindowsPreferenceId.PowerModeDC,choice,3,name,true,out broker)) {
+                if(broker.Status!="ok")return broker;
+                return new StepResult(name,ReadPowerMode(ac)==desired?"ok":"error","Broker power mode verified through the AC/DC power API.");
+            }
             uint result = ac ? PowerSetUserConfiguredACPowerMode(ref desired) : PowerSetUserConfiguredDCPowerMode(ref desired);
             CheckWin32(result);
             Guid actual = ReadPowerMode(ac);

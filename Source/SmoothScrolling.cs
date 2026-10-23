@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Windows;
@@ -12,6 +12,7 @@ public sealed class SmoothScrollingController : IDisposable
     public const double WheelStep = 36;
     public const double TimeConstantMilliseconds = 75;
     readonly ScrollViewer viewer;
+    readonly Func<bool> animationsEnabled;
     readonly List<double> requestedOffsets = new List<double>();
     bool disposed;
     long lastTimestamp;
@@ -26,10 +27,13 @@ public sealed class SmoothScrollingController : IDisposable
     public bool IsAnimating { get; private set; }
     public double BounceOffset { get { return bounceTransform.Y; } }
 
-    public SmoothScrollingController(ScrollViewer scrollViewer)
+    public SmoothScrollingController(ScrollViewer scrollViewer) : this(scrollViewer,delegate{return SystemParameters.ClientAreaAnimation;}) {}
+    internal SmoothScrollingController(ScrollViewer scrollViewer,Func<bool> enabled)
     {
         if (scrollViewer == null) throw new ArgumentNullException("scrollViewer");
         viewer = scrollViewer;
+        if(enabled==null)throw new ArgumentNullException("enabled");
+        animationsEnabled=enabled;
         position = TargetOffset = viewer.VerticalOffset;
         viewer.PreviewMouseWheel += OnWheel;
         viewer.PreviewMouseDown += OnManualMouse;
@@ -42,10 +46,11 @@ public sealed class SmoothScrollingController : IDisposable
     public bool ScrollByWheelDelta(int delta)
     {
         if (disposed || delta == 0 || viewer.ScrollableHeight <= 0) return false;
-        double raw = (IsAnimating ? TargetOffset : viewer.VerticalOffset) - delta * WheelStep / 120.0;
+        double raw = (IsAnimating || requestedOffsets.Count != 0 ? TargetOffset : viewer.VerticalOffset) - delta * WheelStep / 120.0;
         double target = Clamp(raw);
-        if (!SystemParameters.ClientAreaAnimation) {
-            Cancel(); TargetOffset = target; RequestOffset(target); return true;
+        if (!animationsEnabled()) {
+            StopRendering(); bounceTransform.Y = 0; bounceVelocity = 0; pendingBounce = 0;
+            position = TargetOffset = target; RequestOffset(target); return true;
         }
         if (raw != target) {
             double impulse = -(raw - target) * 8;

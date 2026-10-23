@@ -1,4 +1,5 @@
-using Microsoft.Win32;
+﻿using Microsoft.Win32;
+using WindowsPreferences;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -85,6 +86,8 @@ public static class AdditionalControl
 
     static StepResult SetDarkTheme(bool enabled)
     {
+        StepResult broker;
+        if(BrokerWindowsControl.Choice(WindowsPreferenceId.DarkColorMode,enabled?1:0,3,"DarkTheme",false,out broker))return broker;
         bool changed=false;
         using (RegistryKey key = Registry.CurrentUser.OpenSubKey(Personalize, true))
         {
@@ -106,6 +109,30 @@ public static class AdditionalControl
         if (first == 2 || first == 50 || second == 2 || second == 50)
             return new StepResult(name, "skipped", "The power setting is unavailable.");
         Check(first); Check(second);
+        if(BrokerWindowsControl.Certified && (setting==SleepIdle || setting==DisplayIdle)) {
+            StepResult acResult,dcResult;
+            var acId=setting==SleepIdle?WindowsPreferenceId.SleepAC:WindowsPreferenceId.ScreenAC;
+            var dcId=setting==SleepIdle?WindowsPreferenceId.SleepDC:WindowsPreferenceId.ScreenDC;
+            bool acHandled=BrokerWindowsControl.Choice(acId,value==0?-1:2,16,name+"AC",true,out acResult);
+            bool dcHandled=BrokerWindowsControl.Choice(dcId,value==0?-1:2,16,name+"DC",true,out dcResult);
+            if(acHandled && acResult.Status!="ok" || dcHandled && dcResult.Status!="ok")
+                return new StepResult(name,"skipped","Windows did not confirm both power sources.");
+            if(!acHandled && ac!=value){Check(PowerWriteACValueIndex(IntPtr.Zero,ref scheme,ref subgroup,ref setting,value));activate=true;}
+            if(!dcHandled && dc!=value){Check(PowerWriteDCValueIndex(IntPtr.Zero,ref scheme,ref subgroup,ref setting,value));activate=true;}
+            Check(PowerReadACValueIndex(IntPtr.Zero,ref scheme,ref subgroup,ref setting,out ac));
+            Check(PowerReadDCValueIndex(IntPtr.Zero,ref scheme,ref subgroup,ref setting,out dc));
+            return new StepResult(name,ac==value&&dc==value?"ok":"error","Verified separate AC/DC timeout values.");
+        }
+        if(BrokerWindowsControl.Certified && setting==AdaptiveBrightness) {
+            StepResult broker;
+            if(BrokerWindowsControl.Boolean(WindowsPreferenceId.AdaptiveBrightness,value!=0,name,out broker)) {
+                if(broker.Status!="ok")return broker;
+                // This Windows control changes the active source. Preserve the
+                // preset's explicit AC/DC scope for the other source as well.
+                Check(PowerReadACValueIndex(IntPtr.Zero,ref scheme,ref subgroup,ref setting,out ac));
+                Check(PowerReadDCValueIndex(IntPtr.Zero,ref scheme,ref subgroup,ref setting,out dc));
+            }
+        }
         if (ac != value) { Check(PowerWriteACValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, value)); activate = true; }
         if (dc != value) { Check(PowerWriteDCValueIndex(IntPtr.Zero, ref scheme, ref subgroup, ref setting, value)); activate = true; }
         return new StepResult(name, "ok", "AC/DC=" + value + "; scheme=" + scheme);
@@ -113,6 +140,8 @@ public static class AdditionalControl
 
     static StepResult SetExistingMachinePreference(string name, string path, string valueName, int value, int max)
     {
+        StepResult broker;
+        if(name=="UsbPower"&&BrokerWindowsControl.Boolean(WindowsPreferenceId.UsbPower,value!=0,name,out broker))return broker;
         // These are Windows-owned settings. Never create an absent feature/key or
         // change permissions. Machines whose ACL requires elevation silently skip.
         using (RegistryKey read = Registry.LocalMachine.OpenSubKey(path, false))
@@ -181,6 +210,9 @@ public static class AdditionalControl
         {
             bool dimming=feature==1,extended=dimming||feature==3;
             string name = dimming ? "PresenceDimming" : feature==2?"PresenceWake":feature==3?"PresenceOnlooker":"PresenceScreenOff";
+            StepResult broker;
+            var preference=feature==0?WindowsPreferenceId.PresenceSleep:feature==1?WindowsPreferenceId.PresenceDim:feature==2?WindowsPreferenceId.PresenceWake:WindowsPreferenceId.PresenceOnlooker;
+            if(BrokerWindowsControl.Boolean(preference,enabled,name,out broker))return broker;
             Guid settingsId=feature==3?new Guid("89757226-acc1-4f58-81df-47f1d69537f2"):Settings2Id;
             IntPtr factory = IntPtr.Zero, settings = IntPtr.Zero, settings2 = IntPtr.Zero, features = IntPtr.Zero, features2 = IntPtr.Zero, sensor = IntPtr.Zero, className = IntPtr.Zero;
             int initialized = RoInitialize(0);
